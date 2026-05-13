@@ -1,33 +1,33 @@
 # App Educativa (XAMPP + MySQL)
 
-Proyecto web para registrar observaciones disciplinarias y estímulos por estudiante.
+Proyecto web para registrar observaciones disciplinarias y estimulos por estudiante.
 
 ## Estado actual
-- CRUD de estudiantes funcional vía `api.php`.
+- CRUD de estudiantes funcional via `api.php`.
 - Login conectado a base de datos (`docentes`).
 - Registro disciplinario guardado en MySQL (`registros_disciplinarios`).
 - Base de datos nueva: `app_educativa_xampp`.
-- `database.sql` migra automáticamente datos desde una BD antigua `app_educativa` si existe.
+- `database/database.sql` migra automaticamente datos desde una BD antigua `app_educativa` si existe.
 
 ## Requisitos
 - XAMPP (Apache + MySQL)
 - phpMyAdmin
 - Navegador moderno
 
-## Instalación rápida en XAMPP
+## Instalacion rapida en XAMPP
 1. Copia esta carpeta en `C:\xampp\htdocs\proyecto-educativo`.
 2. Inicia Apache y MySQL desde XAMPP.
 3. Abre phpMyAdmin: `http://localhost/phpmyadmin`.
-4. Ejecuta el archivo `database.sql` completo.
+4. Ejecuta el archivo `database/database.sql` completo.
 5. Confirma que exista la base `app_educativa_xampp`.
 6. Abre la app: `http://localhost/proyecto-educativo/`.
 
 ## Credenciales iniciales
 - Usuario: `admin`
-- Contraseña: `1234`
+- Contrasena: `1234`
 
-## Configuración de conexión
-La conexión vive en `config.php`.
+## Configuracion de conexion
+La conexion vive en `app/backend/config.php`.
 
 Valores por defecto:
 - `DB_HOST=localhost`
@@ -36,11 +36,11 @@ Valores por defecto:
 - `DB_PASS=`
 - `DB_NAME=app_educativa_xampp`
 
-Si no defines variables de entorno, se usan esos valores automáticamente.
+Si no defines variables de entorno, se usan esos valores automaticamente.
 Puedes crear un `.env` usando `.env.example`.
 
-## Envío de correos
-El botón de envío al acudiente ahora usa SMTP real configurado desde `.env`.
+## Envio de correos
+El boton de envio al acudiente ahora usa SMTP real configurado desde `.env`.
 
 Variables disponibles:
 - `MAIL_FROM`
@@ -62,17 +62,16 @@ Ejemplo con Gmail:
 - `SMTP_ENCRYPTION=tls`
 
 Nota:
-- Para Gmail debes usar una contraseña de aplicación, no tu contraseña normal.
+- Para Gmail debes usar una contrasena de aplicacion, no tu contrasena normal.
 
 ## Estructura principal
-- `index.html`: interfaz principal.
-- `api.php`: API backend (login, CRUD estudiantes, guardar registros).
-- `config.php`: configuración MySQL.
-- `database.sql`: creación de base nueva + migración desde `app_educativa`.
-- `js/script.js`: login, reportes y sesión.
-- `js/estudiantes.js`: gestión de estudiantes y flujo de registro.
-- `verificar.php`: validación técnica de instalación.
-- `test.html`: pruebas rápidas de endpoints.
+- `app/backend/`: API, conexion, configuracion y scripts PHP de servidor.
+- `app/views/`: vistas PHP que mezclan HTML con logica de presentacion.
+- `frontend/`: assets del cliente (`css`, `js`, `img`, `chatbot`).
+- `database/database.sql`: creacion de base nueva + migracion desde `app_educativa`.
+- `index.php`, `panel_admin.php`, `panel_docente.php`, `api.php`: archivos puente en la raiz para mantener las URLs actuales.
+- `verificar.php`: validacion tecnica de instalacion.
+- `test.html`: pruebas rapidas de endpoints.
 
 ## Endpoints
 - `GET api.php?action=test`
@@ -84,11 +83,11 @@ Nota:
 - `POST api.php?action=eliminarEstudiante`
 - `POST api.php?action=guardarRegistro`
 
-## Verificación rápida
+## Verificacion rapida
 - `http://localhost/proyecto-educativo/verificar.php`
 - `http://localhost/proyecto-educativo/test.html`
 
 ## Notas
-- La eliminación de estudiantes es lógica (`activo = 0`).
+- La eliminacion de estudiantes es logica (`activo = 0`).
 - El script SQL crea una base nueva y no borra la antigua `app_educativa`.
-- Si existen datos en `app_educativa`, se migran a la nueva base al ejecutar `database.sql`.
+- Si existen datos en `app_educativa`, se migran a la nueva base al ejecutar `database/database.sql`.

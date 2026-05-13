@@ -503,7 +503,7 @@ body.site-body.login-page::after {
   font-size: 1rem;
   letter-spacing: 0.3px;
 }
-/* Chatbot moved to chatbot/chatbot.css */
+/* Chatbot moved to frontend/chatbot/chatbot.css */
 
 .historial-details summary {
   display: flex;

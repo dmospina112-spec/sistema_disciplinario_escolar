@@ -547,5 +547,5 @@ function cerrarSesion() {
       toggleLoginMode('login');
     });
 }
-// Chatbot y UI gestionados por chatbot/chatbot.js
+// Chatbot y UI gestionados por frontend/chatbot/chatbot.js
 // Se eliminó el código duplicado aquí para evitar conflictos con el módulo del chatbot.

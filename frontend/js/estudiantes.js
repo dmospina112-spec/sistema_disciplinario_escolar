@@ -34,6 +34,13 @@ let adminMetricEstudiantes;
 let registroGuardadoPendienteId = null;
 
 const WORKFLOW_STEPS = ['estudiantes', 'plantillas', 'estimulos', 'acudiente'];
+const APP_BASE_URL = new URL('./', window.location.href);
+const FRONTEND_LOGO_URL = buildAppUrl('frontend/img/Logo.png');
+const FRONTEND_STYLES_URL = buildAppUrl('frontend/css/styles.css?v=20260408-22');
+
+function buildAppUrl(relativePath) {
+  return new URL(relativePath, APP_BASE_URL).href;
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
   cacheDom();
@@ -589,12 +596,12 @@ function construirMarkupReporteDisciplinario(data) {
 
   return `<div class="disciplinary-report-preview">
     <div class="disciplinary-report-watermark" aria-hidden="true">
-      <img src="img/Logo.png" alt="">
+      <img src="${FRONTEND_LOGO_URL}" alt="">
     </div>
 
     <header class="disciplinary-report-header">
       <div class="disciplinary-report-brand">
-        <img src="img/Logo.png" alt="Logo institucional" class="disciplinary-report-logo">
+        <img src="${FRONTEND_LOGO_URL}" alt="Logo institucional" class="disciplinary-report-logo">
         <div>
           <span class="disciplinary-report-kicker">Reporte disciplinario PDF</span>
           <h3 class="disciplinary-report-heading">Reporte disciplinario del estudiante</h3>
@@ -723,12 +730,12 @@ function construirMarkupReporteEstimulos(data) {
 
   return `<div class="disciplinary-report-preview">
     <div class="disciplinary-report-watermark" aria-hidden="true">
-      <img src="img/Logo.png" alt="">
+      <img src="${FRONTEND_LOGO_URL}" alt="">
     </div>
 
     <header class="disciplinary-report-header">
       <div class="disciplinary-report-brand">
-        <img src="img/Logo.png" alt="Logo institucional" class="disciplinary-report-logo">
+        <img src="${FRONTEND_LOGO_URL}" alt="Logo institucional" class="disciplinary-report-logo">
         <div>
           <span class="disciplinary-report-kicker">Reporte de estímulos PDF</span>
           <h3 class="disciplinary-report-heading">Reporte de estímulos del estudiante</h3>
@@ -856,7 +863,7 @@ function abrirImpresionRespaldo(markup, options = {}) {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles/styles.css?v=20260408-22">
+  <link rel="stylesheet" href="${FRONTEND_STYLES_URL}">
 </head>
 <body style="background:#f8fbff;padding:24px;">
   <div class="disciplinary-pdf-sheet">${markup}</div>
