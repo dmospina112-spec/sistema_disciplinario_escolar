@@ -13,6 +13,10 @@ let adminUsuariosSummary;
 let adminUsuariosRefreshBtn;
 let adminUsuariosCancelBtn;
 let adminUsuariosSubmitBtn;
+let adminUsuariosSaveBtn;
+let adminUsuarioFormTitle;
+let adminUsuarioFormCopy;
+let adminUsuarioFormModeNote;
 let adminUsuariosPasswordHelp;
 let adminMetricUsuarios;
 let adminMetricActivos;
@@ -40,6 +44,10 @@ function cacheAdminUsersDom() {
   adminUsuariosRefreshBtn = document.getElementById('btnRecargarUsuariosAdmin');
   adminUsuariosCancelBtn = document.getElementById('btnCancelarUsuarioAdmin');
   adminUsuariosSubmitBtn = document.getElementById('btnGuardarUsuarioAdmin');
+  adminUsuariosSaveBtn = document.getElementById('btnGuardarCambiosUsuarioAdmin');
+  adminUsuarioFormTitle = document.getElementById('adminUsuarioFormTitle');
+  adminUsuarioFormCopy = document.getElementById('adminUsuarioFormCopy');
+  adminUsuarioFormModeNote = document.getElementById('adminUsuarioFormModeNote');
   adminUsuariosPasswordHelp = document.getElementById('adminPasswordHelp');
   adminMetricUsuarios = document.getElementById('adminMetricUsuarios');
   adminMetricActivos = document.getElementById('adminMetricActivos');
@@ -82,6 +90,7 @@ function bindAdminUsersEvents() {
 
 async function requestAdminUsers(action, method = 'GET', payload = null, query = {}) {
   const params = new URLSearchParams({ action });
+  const requestMethod = String(method || 'GET').toUpperCase();
 
   Object.entries(query).forEach(([key, value]) => {
     if (value === null || value === undefined || value === '') {
@@ -90,10 +99,18 @@ async function requestAdminUsers(action, method = 'GET', payload = null, query =
     params.append(key, String(value));
   });
 
+  if (requestMethod === 'GET') {
+    params.set('_ts', String(Date.now()));
+  }
+
   const options = {
-    method,
+    method: requestMethod,
+    cache: 'no-store',
+    credentials: 'same-origin',
     headers: {
       'Content-Type': 'application/json',
+      'Cache-Control': 'no-store, no-cache, max-age=0',
+      Pragma: 'no-cache',
     },
   };
 
@@ -219,6 +236,98 @@ function getAdminUserInitials(user) {
     .slice(0, 2)
     .map((part) => part.charAt(0).toUpperCase())
     .join('');
+}
+
+function compareAdminText(a, b) {
+  return normalizeAdminSearchValue(a).localeCompare(normalizeAdminSearchValue(b), 'es');
+}
+
+function normalizeAdminUserRecord(user) {
+  if (!user || typeof user !== 'object') {
+    return null;
+  }
+
+  return {
+    ...user,
+    id: Number(user.id || 0),
+    activo: Boolean(user.activo),
+    es_actual: Boolean(user.es_actual),
+  };
+}
+
+function sortAdminUsersList(users) {
+  return users
+    .map((user) => normalizeAdminUserRecord(user))
+    .filter(Boolean)
+    .sort((left, right) => {
+      if (Boolean(left.activo) !== Boolean(right.activo)) {
+        return left.activo ? -1 : 1;
+      }
+
+      const leftRolePriority = left.rol === 'administrador' || left.usuario === 'admin' ? 0 : 1;
+      const rightRolePriority = right.rol === 'administrador' || right.usuario === 'admin' ? 0 : 1;
+      if (leftRolePriority !== rightRolePriority) {
+        return leftRolePriority - rightRolePriority;
+      }
+
+      const nameComparison = compareAdminText(left.nombre, right.nombre);
+      if (nameComparison !== 0) {
+        return nameComparison;
+      }
+
+      const lastNameComparison = compareAdminText(left.apellido, right.apellido);
+      if (lastNameComparison !== 0) {
+        return lastNameComparison;
+      }
+
+      return compareAdminText(left.usuario, right.usuario);
+    });
+}
+
+function extractAdminUserFromResult(result) {
+  if (!result?.data || typeof result.data !== 'object') {
+    return null;
+  }
+
+  if (result.data.usuario && typeof result.data.usuario === 'object' && !Array.isArray(result.data.usuario)) {
+    return normalizeAdminUserRecord(result.data.usuario);
+  }
+
+  if (Number(result.data.id || 0) > 0) {
+    return normalizeAdminUserRecord(result.data);
+  }
+
+  return null;
+}
+
+function syncAdminUserInState(user) {
+  const normalizedUser = normalizeAdminUserRecord(user);
+  if (!normalizedUser || normalizedUser.id <= 0) {
+    return;
+  }
+
+  const existingIndex = adminUsers.findIndex((item) => Number(item.id) === normalizedUser.id);
+  if (existingIndex >= 0) {
+    adminUsers[existingIndex] = {
+      ...adminUsers[existingIndex],
+      ...normalizedUser,
+    };
+  } else {
+    adminUsers.push(normalizedUser);
+  }
+
+  adminUsers = sortAdminUsersList(adminUsers);
+  renderAdminUsers();
+}
+
+function removeAdminUserFromState(userId) {
+  const normalizedId = Number(userId || 0);
+  if (normalizedId <= 0) {
+    return;
+  }
+
+  adminUsers = adminUsers.filter((user) => Number(user.id) !== normalizedId);
+  renderAdminUsers();
 }
 
 function renderAdminUsers() {
@@ -363,7 +472,7 @@ async function loadAdminUsers() {
 
   try {
     const result = await requestAdminUsers('obtenerUsuariosAdmin');
-    adminUsers = Array.isArray(result.data) ? result.data : [];
+    adminUsers = sortAdminUsersList(Array.isArray(result.data) ? result.data : []);
     renderAdminUsers();
   } catch (error) {
     setAdminUsersListMessage(error.message, 'danger');
@@ -374,8 +483,32 @@ async function loadAdminUsers() {
 function updateAdminFormMode() {
   const isEditing = Number(adminUserEditingId) > 0;
 
+  if (adminUsuarioFormTitle) {
+    adminUsuarioFormTitle.textContent = isEditing ? 'Editar usuario' : 'Crear o editar usuario';
+  }
+
+  if (adminUsuarioFormCopy) {
+    adminUsuarioFormCopy.textContent = isEditing
+      ? 'Modifica la informacion del usuario seleccionado y pulsa "Guardar cambios" para guardar la edicion.'
+      : 'Define rol, estado y credenciales de cada cuenta segun la operacion administrativa.';
+  }
+
+  if (adminUsuarioFormModeNote) {
+    adminUsuarioFormModeNote.textContent = isEditing
+      ? 'Modo edicion activo. Revisa los cambios y pulsa "Guardar cambios" para aplicarlos.'
+      : '';
+    adminUsuarioFormModeNote.classList.toggle('d-none', !isEditing);
+  }
+
   if (adminUsuariosSubmitBtn) {
-    adminUsuariosSubmitBtn.textContent = isEditing ? 'Guardar cambios' : 'Crear usuario';
+    adminUsuariosSubmitBtn.textContent = 'Crear usuario';
+    adminUsuariosSubmitBtn.disabled = isEditing;
+  }
+
+  if (adminUsuariosSaveBtn) {
+    adminUsuariosSaveBtn.classList.toggle('d-none', !isEditing);
+    adminUsuariosSaveBtn.disabled = !isEditing;
+    adminUsuariosSaveBtn.textContent = 'Guardar cambios';
   }
 
   adminUsuariosCancelBtn?.classList.toggle('d-none', !isEditing);
@@ -384,6 +517,28 @@ function updateAdminFormMode() {
     adminUsuariosPasswordHelp.textContent = isEditing
       ? 'Opcional al editar. Si la dejas vacia, se conserva la contraseña actual.'
       : 'Obligatoria al crear. Debe tener al menos 8 caracteres.';
+  }
+}
+
+function setAdminUserSubmitState(isSubmitting, isEditing) {
+  if (adminUsuariosSubmitBtn) {
+    adminUsuariosSubmitBtn.disabled = isSubmitting || isEditing;
+    if (!isEditing) {
+      adminUsuariosSubmitBtn.textContent = isSubmitting ? 'Creando usuario...' : 'Crear usuario';
+    }
+  }
+
+  if (adminUsuariosSaveBtn) {
+    adminUsuariosSaveBtn.disabled = isSubmitting || !isEditing;
+    adminUsuariosSaveBtn.textContent = isSubmitting && isEditing ? 'Guardando cambios...' : 'Guardar cambios';
+  }
+
+  if (adminUsuariosCancelBtn) {
+    adminUsuariosCancelBtn.disabled = isSubmitting;
+  }
+
+  if (adminUsuariosRefreshBtn) {
+    adminUsuariosRefreshBtn.disabled = isSubmitting;
   }
 }
 
@@ -413,13 +568,18 @@ function fillAdminUserForm(user) {
   document.getElementById('adminRol').disabled = Boolean(user.es_actual);
   document.getElementById('adminEstado').disabled = Boolean(user.es_actual);
   updateAdminFormMode();
-  hideAdminUsersMessage();
+  showAdminUsersMessage(
+    `Editando a ${`${user.nombre} ${user.apellido}`.trim() || user.usuario}. Pulsa "Guardar cambios" para guardar la edicion.`,
+    'info'
+  );
   adminUsuariosForm?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function buildAdminUserPayload() {
+  const editingId = Number(adminUserEditingId || document.getElementById('adminUsuarioId').value || 0);
+
   return {
-    id: Number(document.getElementById('adminUsuarioId').value || 0),
+    id: editingId,
     nombre: document.getElementById('adminNombre').value.trim(),
     apellido: document.getElementById('adminApellido').value.trim(),
     usuario: normalizeAdminUsername(document.getElementById('adminUsuario').value),
@@ -463,9 +623,15 @@ function validateAdminUserPayload(payload, isEditing) {
 
 async function submitAdminUserForm() {
   const payload = buildAdminUserPayload();
-  const isEditing = payload.id > 0;
+  const isEditing = Number(adminUserEditingId) > 0 || payload.id > 0;
 
   try {
+    setAdminUserSubmitState(true, isEditing);
+
+    if (isEditing && payload.id <= 0) {
+      throw new Error('No se identifico el usuario que deseas editar. Cierra la edicion y vuelve a pulsar "Editar".');
+    }
+
     validateAdminUserPayload(payload, isEditing);
 
     const action = isEditing ? 'actualizarUsuarioAdmin' : 'crearUsuarioAdmin';
@@ -484,11 +650,21 @@ async function submitAdminUserForm() {
       syncAuthenticatedAdminUser(result.data.auth_user);
     }
 
-    showAdminUsersMessage(result.message || 'Usuario guardado correctamente.', 'success');
+    const updatedUser = extractAdminUserFromResult(result);
+    if (updatedUser) {
+      syncAdminUserInState(updatedUser);
+    }
+
+    showAdminUsersMessage(
+      result.message || (isEditing ? 'Cambios guardados correctamente.' : 'Usuario creado correctamente.'),
+      'success'
+    );
     resetAdminUserForm();
     await loadAdminUsers();
   } catch (error) {
     showAdminUsersMessage(error.message, 'danger');
+  } finally {
+    setAdminUserSubmitState(false, Number(adminUserEditingId) > 0);
   }
 }
 
@@ -502,6 +678,7 @@ async function deleteAdminUser(user) {
   try {
     const result = await requestAdminUsers('eliminarUsuarioAdmin', 'POST', { id: Number(user.id) });
     showAdminUsersMessage(result.message || 'Usuario eliminado correctamente.', 'success');
+    removeAdminUserFromState(user.id);
     if (Number(adminUserEditingId) === Number(user.id)) {
       resetAdminUserForm();
     }
@@ -525,6 +702,10 @@ async function reactivateAdminUser(user) {
     });
     if (result.data?.auth_user) {
       syncAuthenticatedAdminUser(result.data.auth_user);
+    }
+    const updatedUser = extractAdminUserFromResult(result);
+    if (updatedUser) {
+      syncAdminUserInState(updatedUser);
     }
     showAdminUsersMessage('Usuario activado correctamente.', 'success');
     await loadAdminUsers();

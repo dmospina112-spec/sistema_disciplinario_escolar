@@ -19,12 +19,26 @@ header('Expires: 0');
 header_remove('ETag');
 header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
 
-$chatbotCssVersion = (string) filemtime(__DIR__ . '/chatbot/chatbot.css');
-$chatbotJsVersion = (string) filemtime(__DIR__ . '/chatbot/chatbot.js') . '-20260416';
-$estudiantesJsVersion = (string) filemtime(__DIR__ . '/js/estudiantes.js');
-$stylesVersion = (string) filemtime(__DIR__ . '/styles/styles.css');
-$scriptJsVersion = (string) filemtime(__DIR__ . '/js/script.js');
-$adminUsuariosJsVersion = (string) filemtime(__DIR__ . '/js/admin-usuarios.js');
+$assetVersion = static function (string $path, string $suffix = ''): string {
+    if (!is_file($path)) {
+        return '0' . $suffix;
+    }
+
+    $hash = md5_file($path);
+    if ($hash === false) {
+        return (string) filemtime($path) . $suffix;
+    }
+
+    return substr($hash, 0, 12) . $suffix;
+};
+
+$chatbotCssVersion = $assetVersion(__DIR__ . '/chatbot/chatbot.css');
+$chatbotJsVersion = $assetVersion(__DIR__ . '/chatbot/chatbot.js', '-20260416');
+$estudiantesJsVersion = $assetVersion(__DIR__ . '/js/estudiantes.js');
+$stylesVersion = $assetVersion(__DIR__ . '/styles/styles.css', '-logout-red-20260514');
+$scriptJsVersion = $assetVersion(__DIR__ . '/js/script.js');
+$adminUsuariosJsVersion = $assetVersion(__DIR__ . '/js/admin-usuarios.js');
+$heroLogoVersion = $assetVersion(__DIR__ . '/img/Logo-hero-contrast-v3.png');
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -53,7 +67,7 @@ $adminUsuariosJsVersion = (string) filemtime(__DIR__ . '/js/admin-usuarios.js');
         <div class="admin-hero-grid">
           <div class="admin-hero-content">
             <div class="admin-hero-logo-stage">
-              <img src="img/Logo.png" alt="Logo institucional grande" class="admin-hero-logo-large">
+              <img src="img/Logo-hero-contrast-v3.png?v=<?php echo htmlspecialchars($heroLogoVersion, ENT_QUOTES, 'UTF-8'); ?>" alt="Logo institucional grande" class="admin-hero-logo-large">
             </div>
 
             <p class="admin-hero-institution">Institución Educativa Gilberto Alzate Avendaño</p>
@@ -122,8 +136,8 @@ $adminUsuariosJsVersion = (string) filemtime(__DIR__ . '/js/admin-usuarios.js');
                   <div class="admin-subpanel admin-form-panel">
                     <div class="admin-subpanel-head">
                       <span class="admin-subpanel-kicker">Formulario de acceso</span>
-                      <h3>Crear o editar usuario</h3>
-                      <p>Define rol, estado y credenciales de cada cuenta según la operación administrativa.</p>
+                      <h3 id="adminUsuarioFormTitle">Crear o editar usuario</h3>
+                      <p id="adminUsuarioFormCopy">Define rol, estado y credenciales de cada cuenta según la operación administrativa.</p>
                     </div>
 
                     <form id="formUsuarioAdmin" autocomplete="off" novalidate>
@@ -178,9 +192,13 @@ $adminUsuariosJsVersion = (string) filemtime(__DIR__ . '/js/admin-usuarios.js');
                         <input type="password" class="form-control" id="adminContrasenaConfirmacion" placeholder="Repite la contraseña" minlength="8">
                       </div>
 
-                      <div class="d-flex flex-wrap gap-2">
-                        <button type="submit" class="btn btn-success" id="btnGuardarUsuarioAdmin">Crear usuario</button>
-                        <button type="button" class="btn btn-secondary d-none" id="btnCancelarUsuarioAdmin">Cancelar edición</button>
+                      <div class="admin-form-actions-wrap">
+                        <p class="admin-form-mode-note d-none" id="adminUsuarioFormModeNote"></p>
+                        <div class="admin-form-actions">
+                          <button type="submit" class="btn btn-success" id="btnGuardarUsuarioAdmin">Crear usuario</button>
+                          <button type="submit" class="btn btn-primary d-none" id="btnGuardarCambiosUsuarioAdmin">Guardar cambios</button>
+                          <button type="button" class="btn btn-secondary d-none" id="btnCancelarUsuarioAdmin">Cancelar edición</button>
+                        </div>
                       </div>
                     </form>
                   </div>

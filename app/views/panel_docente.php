@@ -23,7 +23,7 @@ $projectRoot = dirname(__DIR__, 2);
 $chatbotCssVersion = (string) filemtime($projectRoot . '/frontend/chatbot/chatbot.css');
 $chatbotJsVersion = (string) filemtime($projectRoot . '/frontend/chatbot/chatbot.js') . '-20260416';
 $estudiantesJsVersion = (string) filemtime($projectRoot . '/frontend/js/estudiantes.js');
-$stylesVersion = (string) filemtime($projectRoot . '/frontend/css/styles.css');
+$stylesVersion = (string) filemtime($projectRoot . '/frontend/css/styles.css') . '-logout-red-20260514';
 $scriptJsVersion = (string) filemtime($projectRoot . '/frontend/js/script.js');
 ?>
 <!DOCTYPE html>

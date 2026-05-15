@@ -9,7 +9,16 @@
             en un flujo visual más claro y continuo.
           </p>
         </div>
-        <button type="button" class="btn btn-outline-danger btn-sm" id="btnLogout">Cerrar sesión</button>
+        <button
+          type="button"
+          class="btn btn-sm admin-logout-btn"
+          id="btnLogout"
+          style="color:#dc2626; border-color:#ef4444; background:rgba(255,255,255,0.88);"
+          onmouseenter="this.style.color='#ffffff';this.style.borderColor='#b91c1c';this.style.background='linear-gradient(135deg, #ef4444 0%, #dc2626 100%)';"
+          onmouseleave="this.style.color='#dc2626';this.style.borderColor='#ef4444';this.style.background='rgba(255,255,255,0.88)';"
+          onfocus="this.style.color='#ffffff';this.style.borderColor='#b91c1c';this.style.background='linear-gradient(135deg, #ef4444 0%, #dc2626 100%)';"
+          onblur="this.style.color='#dc2626';this.style.borderColor='#ef4444';this.style.background='rgba(255,255,255,0.88)';"
+        >Cerrar sesión</button>
       </div>
 
       <div class="workflow-stage-bar" id="workflowStageBar" aria-label="Etapas del flujo">

@@ -22,7 +22,7 @@ header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
 $chatbotCssVersion = (string) filemtime(__DIR__ . '/chatbot/chatbot.css');
 $chatbotJsVersion = (string) filemtime(__DIR__ . '/chatbot/chatbot.js') . '-20260416';
 $estudiantesJsVersion = (string) filemtime(__DIR__ . '/js/estudiantes.js');
-$stylesVersion = (string) filemtime(__DIR__ . '/styles/styles.css');
+$stylesVersion = (string) filemtime(__DIR__ . '/styles/styles.css') . '-logout-red-20260514';
 $scriptJsVersion = (string) filemtime(__DIR__ . '/js/script.js');
 ?>
 <!DOCTYPE html>

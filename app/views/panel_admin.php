@@ -19,13 +19,27 @@ header('Expires: 0');
 header_remove('ETag');
 header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
 
+$assetVersion = static function (string $path, string $suffix = ''): string {
+    if (!is_file($path)) {
+        return '0' . $suffix;
+    }
+
+    $hash = md5_file($path);
+    if ($hash === false) {
+        return (string) filemtime($path) . $suffix;
+    }
+
+    return substr($hash, 0, 12) . $suffix;
+};
+
 $projectRoot = dirname(__DIR__, 2);
-$chatbotCssVersion = (string) filemtime($projectRoot . '/frontend/chatbot/chatbot.css');
-$chatbotJsVersion = (string) filemtime($projectRoot . '/frontend/chatbot/chatbot.js') . '-20260416';
-$estudiantesJsVersion = (string) filemtime($projectRoot . '/frontend/js/estudiantes.js');
-$stylesVersion = (string) filemtime($projectRoot . '/frontend/css/styles.css');
-$scriptJsVersion = (string) filemtime($projectRoot . '/frontend/js/script.js');
-$adminUsuariosJsVersion = (string) filemtime($projectRoot . '/frontend/js/admin-usuarios.js');
+$chatbotCssVersion = $assetVersion($projectRoot . '/frontend/chatbot/chatbot.css');
+$chatbotJsVersion = $assetVersion($projectRoot . '/frontend/chatbot/chatbot.js', '-20260416');
+$estudiantesJsVersion = $assetVersion($projectRoot . '/frontend/js/estudiantes.js');
+$stylesVersion = $assetVersion($projectRoot . '/frontend/css/styles.css', '-logout-red-20260514');
+$scriptJsVersion = $assetVersion($projectRoot . '/frontend/js/script.js');
+$adminUsuariosJsVersion = $assetVersion($projectRoot . '/frontend/js/admin-usuarios.js');
+$heroLogoVersion = $assetVersion($projectRoot . '/frontend/img/Logo-hero-contrast-v3.png');
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -54,7 +68,7 @@ $adminUsuariosJsVersion = (string) filemtime($projectRoot . '/frontend/js/admin-
         <div class="admin-hero-grid">
           <div class="admin-hero-content">
             <div class="admin-hero-logo-stage">
-              <img src="frontend/img/Logo.png" alt="Logo institucional grande" class="admin-hero-logo-large">
+              <img src="frontend/img/Logo-hero-contrast-v3.png?v=<?php echo htmlspecialchars($heroLogoVersion, ENT_QUOTES, 'UTF-8'); ?>" alt="Logo institucional grande" class="admin-hero-logo-large">
             </div>
 
             <p class="admin-hero-institution">Institución Educativa Gilberto Alzate Avendaño</p>
@@ -123,8 +137,8 @@ $adminUsuariosJsVersion = (string) filemtime($projectRoot . '/frontend/js/admin-
                   <div class="admin-subpanel admin-form-panel">
                     <div class="admin-subpanel-head">
                       <span class="admin-subpanel-kicker">Formulario de acceso</span>
-                      <h3>Crear o editar usuario</h3>
-                      <p>Define rol, estado y credenciales de cada cuenta según la operación administrativa.</p>
+                      <h3 id="adminUsuarioFormTitle">Crear o editar usuario</h3>
+                      <p id="adminUsuarioFormCopy">Define rol, estado y credenciales de cada cuenta según la operación administrativa.</p>
                     </div>
 
                     <form id="formUsuarioAdmin" autocomplete="off" novalidate>
@@ -198,9 +212,13 @@ $adminUsuariosJsVersion = (string) filemtime($projectRoot . '/frontend/js/admin-
                         <input type="password" class="form-control" id="adminContrasenaConfirmacion" placeholder="Repite la contraseña" minlength="8">
                       </div>
 
-                      <div class="d-flex flex-wrap gap-2">
-                        <button type="submit" class="btn btn-success" id="btnGuardarUsuarioAdmin">Crear usuario</button>
-                        <button type="button" class="btn btn-secondary d-none" id="btnCancelarUsuarioAdmin">Cancelar edición</button>
+                      <div class="admin-form-actions-wrap">
+                        <p class="admin-form-mode-note d-none" id="adminUsuarioFormModeNote"></p>
+                        <div class="admin-form-actions">
+                          <button type="submit" class="btn btn-success" id="btnGuardarUsuarioAdmin">Crear usuario</button>
+                          <button type="submit" class="btn btn-primary d-none" id="btnGuardarCambiosUsuarioAdmin">Guardar cambios</button>
+                          <button type="button" class="btn btn-secondary d-none" id="btnCancelarUsuarioAdmin">Cancelar edición</button>
+                        </div>
                       </div>
                     </form>
                   </div>
