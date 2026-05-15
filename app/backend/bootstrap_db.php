@@ -199,6 +199,21 @@ function ensureDatabaseReady(): void
         $serverConn->query("ALTER TABLE acudientes ADD COLUMN apellido VARCHAR(100) NOT NULL DEFAULT '' AFTER nombre");
     }
 
+    $acudienteParentescoColumnCheck = $serverConn->query("SHOW COLUMNS FROM acudientes LIKE 'parentesco'");
+    if (!$acudienteParentescoColumnCheck || $acudienteParentescoColumnCheck->num_rows === 0) {
+        $serverConn->query("ALTER TABLE acudientes ADD COLUMN parentesco VARCHAR(60) DEFAULT NULL AFTER apellido");
+    }
+
+    $acudienteTelefonoColumnCheck = $serverConn->query("SHOW COLUMNS FROM acudientes LIKE 'telefono'");
+    if (!$acudienteTelefonoColumnCheck || $acudienteTelefonoColumnCheck->num_rows === 0) {
+        $serverConn->query("ALTER TABLE acudientes ADD COLUMN telefono VARCHAR(30) DEFAULT NULL AFTER parentesco");
+    }
+
+    $acudienteCorreoColumnCheck = $serverConn->query("SHOW COLUMNS FROM acudientes LIKE 'correo'");
+    if (!$acudienteCorreoColumnCheck || $acudienteCorreoColumnCheck->num_rows === 0) {
+        $serverConn->query("ALTER TABLE acudientes ADD COLUMN correo VARCHAR(150) DEFAULT NULL AFTER telefono");
+    }
+
     $serverConn->query("UPDATE acudientes SET apellido = '' WHERE apellido IS NULL");
 
     $countResult = $serverConn->query('SELECT COUNT(*) AS total FROM docentes');

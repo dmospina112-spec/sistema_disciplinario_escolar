@@ -1,13 +1,13 @@
 -- =====================================================
 -- Base de datos principal del proyecto
--- Nombre: App_educativa
+-- Nombre: app_educativa_recuperada
 -- =====================================================
 
-CREATE DATABASE IF NOT EXISTS App_educativa
+CREATE DATABASE IF NOT EXISTS app_educativa_recuperada
   CHARACTER SET utf8mb4
   COLLATE utf8mb4_unicode_ci;
 
-USE App_educativa;
+USE app_educativa_recuperada;
 
 SET NAMES utf8mb4;
 

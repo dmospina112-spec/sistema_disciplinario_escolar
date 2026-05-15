@@ -1,0 +1,5 @@
+﻿Base de datos: app_educativa_recuperada
+Archivo SQL: C:\Users\PC\Downloads\Sistema_disciplinario\storage\backups\app_educativa_recuperada_2026-05-15_15-00-09.sql
+Archivo .env: C:\Users\PC\Downloads\Sistema_disciplinario\storage\backups\app_educativa_recuperada_2026-05-15_15-00-09.env.backup
+Archivo schema: C:\Users\PC\Downloads\Sistema_disciplinario\storage\backups\app_educativa_recuperada_2026-05-15_15-00-09.schema.sql
+Fecha: 2026-05-15 15:00:09

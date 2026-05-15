@@ -6,8 +6,8 @@ Proyecto web para registrar observaciones disciplinarias y estímulos por estudi
 - CRUD de estudiantes funcional vía `api.php`.
 - Login conectado a base de datos (`docentes`).
 - Registro disciplinario guardado en MySQL (`registros_disciplinarios`).
-- Base de datos nueva: `app_educativa_xampp`.
-- `database.sql` migra automáticamente datos desde una BD antigua `app_educativa` si existe.
+- Base de datos activa: `app_educativa_recuperada`.
+- `database.sql` crea la estructura base en `app_educativa_recuperada`.
 
 ## Requisitos
 - XAMPP (Apache + MySQL)
@@ -19,7 +19,7 @@ Proyecto web para registrar observaciones disciplinarias y estímulos por estudi
 2. Inicia Apache y MySQL desde XAMPP.
 3. Abre phpMyAdmin: `http://localhost/phpmyadmin`.
 4. Ejecuta el archivo `database.sql` completo.
-5. Confirma que exista la base `app_educativa_xampp`.
+5. Confirma que exista la base `app_educativa_recuperada`.
 6. Abre la app: `http://localhost/proyecto-educativo/`.
 
 ## Credenciales iniciales
@@ -34,7 +34,7 @@ Valores por defecto:
 - `DB_PORT=3306`
 - `DB_USER=root`
 - `DB_PASS=`
-- `DB_NAME=app_educativa_xampp`
+- `DB_NAME=app_educativa_recuperada`
 
 Si no defines variables de entorno, se usan esos valores automáticamente.
 Puedes crear un `.env` usando `.env.example`.
@@ -68,7 +68,7 @@ Nota:
 - `index.html`: interfaz principal.
 - `api.php`: API backend (login, CRUD estudiantes, guardar registros).
 - `config.php`: configuración MySQL.
-- `database.sql`: creación de base nueva + migración desde `app_educativa`.
+- `database.sql`: creación de la base `app_educativa_recuperada`.
 - `js/script.js`: login, reportes y sesión.
 - `js/estudiantes.js`: gestión de estudiantes y flujo de registro.
 - `verificar.php`: validación técnica de instalación.
@@ -90,5 +90,5 @@ Nota:
 
 ## Notas
 - La eliminación de estudiantes es lógica (`activo = 0`).
-- El script SQL crea una base nueva y no borra la antigua `app_educativa`.
-- Si existen datos en `app_educativa`, se migran a la nueva base al ejecutar `database.sql`.
+- El proyecto queda configurado para usar `app_educativa_recuperada`.
+- La base antigua `app_educativa` puede permanecer aparte sin afectar la app.

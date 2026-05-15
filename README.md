@@ -6,8 +6,8 @@ Proyecto web para registrar observaciones disciplinarias y estimulos por estudia
 - CRUD de estudiantes funcional via `api.php`.
 - Login conectado a base de datos (`docentes`).
 - Registro disciplinario guardado en MySQL (`registros_disciplinarios`).
-- Base de datos nueva: `app_educativa_xampp`.
-- `database/database.sql` migra automaticamente datos desde una BD antigua `app_educativa` si existe.
+- Base de datos activa: `app_educativa_recuperada`.
+- `database/database.sql` crea la estructura base en `app_educativa_recuperada`.
 
 ## Requisitos
 - XAMPP (Apache + MySQL)
@@ -19,7 +19,7 @@ Proyecto web para registrar observaciones disciplinarias y estimulos por estudia
 2. Inicia Apache y MySQL desde XAMPP.
 3. Abre phpMyAdmin: `http://localhost/phpmyadmin`.
 4. Ejecuta el archivo `database/database.sql` completo.
-5. Confirma que exista la base `app_educativa_xampp`.
+5. Confirma que exista la base `app_educativa_recuperada`.
 6. Abre la app: `http://localhost/proyecto-educativo/`.
 
 ## Credenciales iniciales
@@ -34,7 +34,7 @@ Valores por defecto:
 - `DB_PORT=3306`
 - `DB_USER=root`
 - `DB_PASS=`
-- `DB_NAME=app_educativa_xampp`
+- `DB_NAME=app_educativa_recuperada`
 
 Si no defines variables de entorno, se usan esos valores automaticamente.
 Puedes crear un `.env` usando `.env.example`.
@@ -68,7 +68,7 @@ Nota:
 - `app/backend/`: API, conexion, configuracion y scripts PHP de servidor.
 - `app/views/`: vistas PHP que mezclan HTML con logica de presentacion.
 - `frontend/`: assets del cliente (`css`, `js`, `img`, `chatbot`).
-- `database/database.sql`: creacion de base nueva + migracion desde `app_educativa`.
+- `database/database.sql`: creacion de la base `app_educativa_recuperada`.
 - `index.php`, `panel_admin.php`, `panel_docente.php`, `api.php`: archivos puente en la raiz para mantener las URLs actuales.
 - `verificar.php`: validacion tecnica de instalacion.
 - `test.html`: pruebas rapidas de endpoints.
@@ -87,7 +87,12 @@ Nota:
 - `http://localhost/proyecto-educativo/verificar.php`
 - `http://localhost/proyecto-educativo/test.html`
 
+## Respaldos
+- `respaldar_bd.bat`: crea un respaldo SQL en `storage/backups/`.
+- `restaurar_bd.bat`: restaura el ultimo respaldo generado o uno que le pases por ruta.
+- Ejemplo de restauracion manual: `restaurar_bd.bat "C:\ruta\al\archivo.sql"`
+
 ## Notas
 - La eliminacion de estudiantes es logica (`activo = 0`).
-- El script SQL crea una base nueva y no borra la antigua `app_educativa`.
-- Si existen datos en `app_educativa`, se migran a la nueva base al ejecutar `database/database.sql`.
+- El proyecto queda configurado para usar `app_educativa_recuperada`.
+- La base antigua `app_educativa` puede permanecer aparte sin afectar la app.

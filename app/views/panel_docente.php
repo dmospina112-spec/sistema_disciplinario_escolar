@@ -1,8 +1,13 @@
 <?php
 declare(strict_types=1);
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+require_once dirname(__DIR__) . '/backend/session.php';
+
+try {
+    ensureAppSessionStarted();
+} catch (Throwable $_) {
+    header('Location: index.php');
+    exit;
 }
 
 $authUser = $_SESSION['auth_user'] ?? null;

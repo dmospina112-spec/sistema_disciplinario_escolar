@@ -398,6 +398,58 @@ function normalizeComparisonKey(string $value): string
     return trim((string) $text);
 }
 
+function extractComparisonTokens(string $value): array
+{
+    $normalized = normalizeComparisonKey($value);
+    if ($normalized === '') {
+        return [];
+    }
+
+    $parts = preg_split('/\s+/', $normalized) ?: [];
+    $ignored = ['DE', 'DEL', 'LA', 'LAS', 'LOS', 'Y'];
+    $tokens = [];
+
+    foreach ($parts as $part) {
+        $token = trim((string) $part);
+        if ($token === '' || in_array($token, $ignored, true)) {
+            continue;
+        }
+
+        $tokens[$token] = true;
+    }
+
+    return array_keys($tokens);
+}
+
+function comparisonTokensMatch(array $leftTokens, array $rightTokens): bool
+{
+    if (empty($leftTokens) || empty($rightTokens)) {
+        return false;
+    }
+
+    if (!empty(array_intersect($leftTokens, $rightTokens))) {
+        return true;
+    }
+
+    foreach ($leftTokens as $leftToken) {
+        foreach ($rightTokens as $rightToken) {
+            if ($leftToken === '' || $rightToken === '') {
+                continue;
+            }
+
+            if (strlen($leftToken) < 5 && strlen($rightToken) < 5) {
+                continue;
+            }
+
+            if (strpos($leftToken, $rightToken) !== false || strpos($rightToken, $leftToken) !== false) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 function normalizeRoleValue($value, bool $allowAdminRole = true): string
 {
     $role = strtolower(trim((string) $value));
@@ -900,9 +952,9 @@ function getRequestAction(): string
 
 function getAcudientesPlanillaPath(): string
 {
-    $configured = normalizeText(getenv('ACUDIENTES_XLSX_PATH') ?: '');
+    $configured = normalizeText(getenv('ACUDIENTES_XLS_PATH') ?: '');
     if ($configured === '') {
-        $configured = normalizeText(getenv('ACUDIENTES_XLS_PATH') ?: '');
+        $configured = normalizeText(getenv('ACUDIENTES_XLSX_PATH') ?: '');
     }
     if ($configured !== '') {
         return $configured;
@@ -1198,6 +1250,7 @@ function buildStudentLookups(mysqli $conn): array
     $byMatricula = [];
     $byName = [];
     $nameCandidates = [];
+    $orderedStudents = [];
 
     while ($row = $result->fetch_assoc()) {
         $id = (int) ($row['id'] ?? 0);
@@ -1227,12 +1280,18 @@ function buildStudentLookups(mysqli $conn): array
                 ];
             }
         }
+
+        $orderedStudents[] = [
+            'id' => $id,
+            'surname_tokens' => extractComparisonTokens($apellido),
+        ];
     }
 
     return [
         'matricula' => $byMatricula,
         'name' => $byName,
         'name_candidates' => $nameCandidates,
+        'ordered_students' => $orderedStudents,
     ];
 }
 
@@ -1262,6 +1321,44 @@ function findStudentIdByApproximateName(array $candidates, string $rowNameKey): 
 
     if ($bestDistance <= $maxDistance) {
         return $bestId;
+    }
+
+    return 0;
+}
+
+function findStudentIdByGuardianSequence(array $orderedStudents, array &$usedStudentIds, string $guardianName, int &$cursor): int
+{
+    $guardianTokens = extractComparisonTokens($guardianName);
+    if (empty($guardianTokens) || empty($orderedStudents)) {
+        return 0;
+    }
+
+    $count = count($orderedStudents);
+
+    for ($pass = 0; $pass < 2; $pass++) {
+        $start = $pass === 0 ? max(0, $cursor) : 0;
+
+        for ($index = $start; $index < $count; $index++) {
+            $student = $orderedStudents[$index];
+            $studentId = (int) ($student['id'] ?? 0);
+
+            if ($studentId <= 0 || isset($usedStudentIds[$studentId])) {
+                continue;
+            }
+
+            $studentTokens = is_array($student['surname_tokens'] ?? null)
+                ? $student['surname_tokens']
+                : [];
+
+            if (!comparisonTokensMatch($guardianTokens, $studentTokens)) {
+                continue;
+            }
+
+            $usedStudentIds[$studentId] = true;
+            $cursor = $index + 1;
+
+            return $studentId;
+        }
     }
 
     return 0;
@@ -1318,6 +1415,9 @@ function importarPlanillaAcudientes(mysqli $conn): void
 
     $guardados = 0;
     $sinEstudiante = 0;
+    $guardadosPorSecuencia = 0;
+    $usedStudentIds = [];
+    $orderedCursor = 0;
 
     foreach ($rows as $row) {
         $nombreAlumno = normalizeText($row['Nombre_alumno'] ?? '');
@@ -1343,6 +1443,22 @@ function importarPlanillaAcudientes(mysqli $conn): void
                 $estudianteId = (int) $lookups['name'][$nameKey];
             } elseif ($nameKey !== '') {
                 $estudianteId = findStudentIdByApproximateName($lookups['name_candidates'] ?? [], $nameKey);
+            }
+        }
+
+        if ($estudianteId > 0) {
+            $usedStudentIds[$estudianteId] = true;
+        }
+
+        if ($estudianteId <= 0) {
+            $estudianteId = findStudentIdByGuardianSequence(
+                $lookups['ordered_students'] ?? [],
+                $usedStudentIds,
+                $nombreAcudiente,
+                $orderedCursor
+            );
+            if ($estudianteId > 0) {
+                $guardadosPorSecuencia++;
             }
         }
 
@@ -1380,6 +1496,7 @@ function importarPlanillaAcudientes(mysqli $conn): void
         'total' => count($rows),
         'guardados' => $guardados,
         'sin_estudiante' => $sinEstudiante,
+        'guardados_por_secuencia' => $guardadosPorSecuencia,
     ]);
 }
 
@@ -1575,14 +1692,21 @@ function estudianteActivoExiste(mysqli $conn, int $estudianteId): bool
 
 function fetchLegacyAcudiente(mysqli $conn, int $estudianteId): ?array
 {
-    $legacySchema = 'app_educativa';
+    $cfg = getDbConfig();
+    $legacySchema = trim((string) ($cfg['legacy_name'] ?? ''));
+    if ($legacySchema === '' || strcasecmp($legacySchema, (string) $cfg['name']) === 0) {
+        return null;
+    }
+
     if (!tableExists($conn, 'acudientes', $legacySchema)) {
         return null;
     }
 
+    $legacySchemaSql = str_replace('`', '``', $legacySchema);
+
     $stmt = $conn->prepare(
         'SELECT id, estudiante_id, nombre, apellido, parentesco, telefono, correo, direccion
-         FROM `app_educativa`.acudientes
+         FROM `' . $legacySchemaSql . '`.acudientes
          WHERE estudiante_id = ?
          LIMIT 1'
     );
