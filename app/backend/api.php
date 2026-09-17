@@ -381,6 +381,22 @@ function sendEmailUsingSmtp(string $to, string $subject, string $body, array $co
     }
 }
 
+function sendDocenteRegistrationConfirmation(string $correo, string $nombre, string $apellido, string $usuario): void
+{
+    $nombreCompleto = composePersonFullName($nombre, $apellido);
+    $saludo = $nombreCompleto !== '' ? $nombreCompleto : $usuario;
+    $asunto = 'Confirmación de registro - App Educativa';
+    $mensaje = "Hola {$saludo},\n\n"
+        . "Tu cuenta de docente fue registrada correctamente en App Educativa.\n\n"
+        . "Usuario: {$usuario}\n"
+        . "Correo registrado: {$correo}\n\n"
+        . "Ya puedes ingresar a la plataforma con tu usuario y contraseña.\n\n"
+        . "Si no solicitaste este registro, comunícate con la administración de la institución.\n\n"
+        . "App Educativa";
+
+    sendEmailUsingSmtp($correo, $asunto, $mensaje, getMailTransportConfig());
+}
+
 function normalizeUsername($value): string
 {
     $username = strtolower(trim((string) $value));
@@ -2416,12 +2432,28 @@ function crearDocente(mysqli $conn, array $data): void
 
     $insert->close();
 
+    $correoConfirmacionEnviado = false;
+    try {
+        sendDocenteRegistrationConfirmation($correo, $nombre, $apellido, $usuario);
+        $correoConfirmacionEnviado = true;
+    } catch (Throwable $exception) {
+        error_log(
+            'No se pudo enviar la confirmación de registro para el docente '
+            . $usuario
+            . ': '
+            . $exception->getMessage()
+        );
+    }
+
     jsonResponse(201, [
         'success' => true,
-        'message' => 'Cuenta creada correctamente. Ya puedes ingresar.',
+        'message' => $correoConfirmacionEnviado
+            ? 'Cuenta creada correctamente. Enviamos la confirmación a tu correo. Ya puedes ingresar.'
+            : 'Cuenta creada correctamente. Ya puedes ingresar. No fue posible enviar la confirmación al correo en este momento.',
         'data' => [
             'usuario' => $usuario,
             'rol' => $rol,
+            'correo_confirmacion_enviado' => $correoConfirmacionEnviado,
         ],
     ]);
 }

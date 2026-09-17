@@ -40,7 +40,7 @@ Si no defines variables de entorno, se usan esos valores automaticamente.
 Puedes crear un `.env` usando `.env.example`.
 
 ## Envio de correos
-El boton de envio al acudiente ahora usa SMTP real configurado desde `.env`.
+El botón de envío al acudiente y la confirmación automática de registro de docentes usan SMTP real configurado desde `.env`.
 
 Variables disponibles:
 - `MAIL_FROM`
@@ -90,7 +90,20 @@ Nota:
 ## Respaldos
 - `respaldar_bd.bat`: crea un respaldo SQL en `storage/backups/`.
 - `restaurar_bd.bat`: restaura el ultimo respaldo generado o uno que le pases por ruta.
+- `reparar_mysql_xampp.bat`: repara el arranque de MariaDB/XAMPP cuando aparece `MySQL shutdown unexpectedly`.
 - Ejemplo de restauracion manual: `restaurar_bd.bat "C:\ruta\al\archivo.sql"`
+
+## Recuperacion de MySQL en XAMPP
+Si XAMPP muestra `MySQL shutdown unexpectedly` y la app no deja iniciar sesion, normalmente quedo corrupta una tabla interna del esquema `mysql` por un cierre brusco.
+
+Pasos recomendados:
+- Cierra MySQL en XAMPP.
+- Ejecuta `reparar_mysql_xampp.bat` desde la raiz del proyecto.
+- Espera a que el script cree un respaldo en `storage/backups/`, restaure `mysql\db.*`, repare `mysql.columns_priv` y valide la base `app_educativa_recuperada`.
+- Si el panel de XAMPP no refresca el estado, cierralo y abrelo otra vez.
+
+Ruta alternativa:
+- `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\repair_xampp_mysql.ps1`
 
 ## Notas
 - La eliminacion de estudiantes es logica (`activo = 0`).

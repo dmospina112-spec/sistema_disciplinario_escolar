@@ -116,9 +116,12 @@ function bindEvents() {
   }
 
   if (buscarEstudiante) {
-    buscarEstudiante.addEventListener('input', (event) => {
-      llenarSelectEstudiantes(event.target.value);
-    });
+    const actualizarBusquedaEstudiantes = () => {
+      llenarSelectEstudiantes(buscarEstudiante.value);
+    };
+
+    buscarEstudiante.addEventListener('input', actualizarBusquedaEstudiantes);
+    buscarEstudiante.addEventListener('search', actualizarBusquedaEstudiantes);
   }
 
   if (btnSiguienteEstudiante) {
@@ -1131,25 +1134,41 @@ function formatearFecha(valor) {
   }
 }
 
+function normalizarTextoBusqueda(valor = '') {
+  return String(valor)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLocaleLowerCase('es-CO');
+}
+
 function llenarSelectEstudiantes(filtro = '') {
   if (!selectEstudiante) {
     return;
   }
 
-  const textoFiltro = filtro.trim().toLowerCase();
+  const textoFiltro = normalizarTextoBusqueda(filtro);
   selectEstudiante.innerHTML = '<option value="">Selecciona un estudiante...</option>';
 
-  estudiantes
-    .filter((item) => {
-      const texto = `${item.nombre} ${item.apellido} ${item.numero_matricula}`.toLowerCase();
-      return texto.includes(textoFiltro);
-    })
-    .forEach((item) => {
-      const option = document.createElement('option');
-      option.value = item.id;
-      option.textContent = `${item.apellido}, ${item.nombre} (${item.numero_matricula})`;
-      selectEstudiante.appendChild(option);
-    });
+  const coincidencias = estudiantes.filter((item) => {
+    const texto = normalizarTextoBusqueda(`${item.nombre} ${item.apellido} ${item.numero_matricula}`);
+    return texto.includes(textoFiltro);
+  });
+
+  coincidencias.forEach((item) => {
+    const option = document.createElement('option');
+    option.value = item.id;
+    option.textContent = `${item.apellido}, ${item.nombre} (${item.numero_matricula})`;
+    selectEstudiante.appendChild(option);
+  });
+
+  if (textoFiltro !== '' && coincidencias.length === 0) {
+    const option = document.createElement('option');
+    option.value = '';
+    option.disabled = true;
+    option.textContent = 'No se encontraron estudiantes';
+    selectEstudiante.appendChild(option);
+  }
 
   if (estudianteSeleccionado?.id) {
     selectEstudiante.value = String(estudianteSeleccionado.id);

@@ -1048,6 +1048,23 @@ body.site-body:not(.login-page) .btn-outline-success {
   background: rgba(255, 255, 255, 0.72);
 }
 
+/* Keep management controls legible on hover. */
+body.site-body:not(.login-page) .student-manage-actions .btn-outline-primary:hover,
+body.site-body:not(.login-page) .admin-user-actions .btn-outline-primary:hover,
+body.site-body:not(.login-page) #btnRecargarUsuariosAdmin:hover,
+body.site-body:not(.login-page) #btnImprimirHistorialSeleccionados:hover:not(:disabled) {
+  color: #ffffff;
+  background-color: #1d4f91;
+  border-color: #1d4f91;
+}
+
+body.site-body:not(.login-page) .student-manage-actions .btn-outline-danger:hover,
+body.site-body:not(.login-page) .admin-user-actions .btn-outline-danger:hover {
+  color: #ffffff;
+  background-color: #b91c1c;
+  border-color: #b91c1c;
+}
+
 body.site-body:not(.login-page) .admin-logout-btn {
   color: #dc2626;
   border-color: #ef4444;

@@ -1,0 +1,6 @@
+.env
+/vendor/
+storage/backups/
+*.bat
+reparar_mysql_xampp.bat
+scripts/
