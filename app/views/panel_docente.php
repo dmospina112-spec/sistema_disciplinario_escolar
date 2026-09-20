@@ -54,9 +54,9 @@ $scriptJsVersion = (string) filemtime($projectRoot . '/frontend/js/script.js');
 
   <div class="container py-5">
     <header class="page-header text-center mb-5">
-      <img src="frontend/img/Logo.png" alt="Logo Institución Educativa" class="brand-logo img-fluid mb-3">
+      <img src="frontend/img/Logo-comportate.jpg" alt="Logo Comportate" class="brand-logo img-fluid mb-3">
       <h1 class="text-primary">Panel Docente</h1>
-      <h2 class="h4 text-primary">Institución Educativa Gilberto Alzate Avendaño</h2>
+      <h2 class="h4 text-primary"></h2>
       <p id="userGreeting" class="text-muted small mt-2"></p>
     </header>
   </div>
@@ -66,9 +66,9 @@ $scriptJsVersion = (string) filemtime($projectRoot . '/frontend/js/script.js');
   <footer class="site-footer">
     <div class="site-footer-shell">
       <div class="site-footer-brand">
-        <img src="frontend/img/Logo.png" alt="Logo institucional" class="site-footer-logo">
+        <img src="frontend/img/Logo-comportate.jpg" alt="Logo Comportate" class="site-footer-logo">
         <div>
-          <strong>Institución Educativa Gilberto Alzate Avendaño</strong>
+          <strong>Tú comportaminto construye un entorno positivo</strong>
           <p>Panel docente para estudiantes, reportes, acudientes e historial disciplinario.</p>
         </div>
       </div>

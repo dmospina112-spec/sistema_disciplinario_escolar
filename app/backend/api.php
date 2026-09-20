@@ -1576,6 +1576,7 @@ function importarPlanillaAcudientes(mysqli $conn): void
 
 function obtenerEstudiantes(mysqli $conn): void
 {
+    $incluirArchivados = filter_var($_GET['incluir_archivados'] ?? false, FILTER_VALIDATE_BOOLEAN);
     $sql = 'SELECT e.id,
                    e.nombre,
                    e.apellido,
@@ -1590,7 +1591,7 @@ function obtenerEstudiantes(mysqli $conn): void
                    a.direccion AS acudiente_direccion
             FROM estudiantes e
             LEFT JOIN acudientes a ON a.estudiante_id = e.id
-            WHERE e.activo = 1
+            ' . ($incluirArchivados ? '' : 'WHERE e.activo = 1') . '
             ORDER BY e.apellido ASC, e.nombre ASC';
 
     $result = $conn->query($sql);
@@ -1707,11 +1708,12 @@ function obtenerHistorialEstudiante(mysqli $conn): void
                 r.faltas_tipo2,
                 r.faltas_tipo3,
                 r.estimulos,
+                r.activo,
                 r.fecha_registro,
                 TRIM(CONCAT(COALESCE(d.nombre, ""), " ", COALESCE(d.apellido, ""))) AS docente_nombre
          FROM registros_disciplinarios r
          LEFT JOIN docentes d ON d.id = r.docente_id
-         WHERE r.estudiante_id = ?
+         WHERE r.estudiante_id = ? AND r.activo = 1
          ORDER BY r.fecha_registro DESC
          LIMIT 25'
     );
@@ -1735,6 +1737,7 @@ function obtenerHistorialEstudiante(mysqli $conn): void
             'faltas_tipo2' => decodeJsonColumnArray((string) ($row['faltas_tipo2'] ?? '')),
             'faltas_tipo3' => decodeJsonColumnArray((string) ($row['faltas_tipo3'] ?? '')),
             'estimulos' => decodeJsonColumnArray((string) ($row['estimulos'] ?? '')),
+            'activo' => (int) ($row['activo'] ?? 1),
             'fecha_registro' => (string) ($row['fecha_registro'] ?? ''),
             'docente_nombre' => trim((string) ($row['docente_nombre'] ?? '')),
         ];
@@ -2858,7 +2861,7 @@ function actualizarUsuarioAdmin(mysqli $conn, array $data): void
     ]);
 }
 
-function eliminarUsuarioAdmin(mysqli $conn, array $data): void
+function archivarUsuarioAdmin(mysqli $conn, array $data): void
 {
     $authUser = requireAdminAccess();
     $userId = (int) ($data['id'] ?? 0);
@@ -2866,14 +2869,14 @@ function eliminarUsuarioAdmin(mysqli $conn, array $data): void
     if ($userId <= 0) {
         jsonResponse(400, [
             'success' => false,
-            'error' => 'Debes indicar un usuario válido para eliminar.',
+            'error' => 'Debes indicar un usuario válido para archivar.',
         ]);
     }
 
     if ($userId === (int) ($authUser['id'] ?? 0)) {
         jsonResponse(409, [
             'success' => false,
-            'error' => 'No puedes eliminar tu propia cuenta desde el panel.',
+            'error' => 'No puedes archivar tu propia cuenta desde el panel.',
         ]);
     }
 
@@ -2888,15 +2891,15 @@ function eliminarUsuarioAdmin(mysqli $conn, array $data): void
     if (resolveDocenteRole($currentRow) === 'administrador' && countActiveAdministrators($conn, $userId) === 0) {
         jsonResponse(409, [
             'success' => false,
-            'error' => 'No puedes eliminar al último administrador activo.',
+            'error' => 'No puedes archivar al último administrador activo.',
         ]);
     }
 
-    $stmt = $conn->prepare('DELETE FROM docentes WHERE id = ?');
+    $stmt = $conn->prepare('UPDATE docentes SET activo = 0 WHERE id = ? AND activo = 1');
     if (!$stmt) {
         jsonResponse(500, [
             'success' => false,
-            'error' => 'No se pudo eliminar el usuario.',
+            'error' => 'No se pudo archivar el usuario.',
         ]);
     }
 
@@ -2905,14 +2908,14 @@ function eliminarUsuarioAdmin(mysqli $conn, array $data): void
         $stmt->close();
         jsonResponse(500, [
             'success' => false,
-            'error' => 'No se pudo eliminar el usuario.',
+            'error' => 'No se pudo archivar el usuario.',
         ]);
     }
     $stmt->close();
 
     jsonResponse(200, [
         'success' => true,
-        'message' => 'Usuario eliminado correctamente.',
+        'message' => 'Usuario archivado correctamente.',
     ]);
 }
 
@@ -3092,13 +3095,13 @@ function actualizarEstudiante(mysqli $conn, array $data): void
     ]);
 }
 
-function eliminarEstudiante(mysqli $conn, array $data): void
+function archivarEstudiante(mysqli $conn, array $data): void
 {
     $id = (int) ($data['id'] ?? 0);
     if ($id <= 0) {
         jsonResponse(400, [
             'success' => false,
-            'error' => 'Debes enviar un ID válido para eliminar.',
+            'error' => 'Debes enviar un ID válido para archivar.',
         ]);
     }
 
@@ -3107,14 +3110,14 @@ function eliminarEstudiante(mysqli $conn, array $data): void
     try {
         $stmt = $conn->prepare('UPDATE estudiantes SET activo = 0 WHERE id = ? AND activo = 1');
         if (!$stmt) {
-            throw new RuntimeException('No se pudo preparar la eliminación del estudiante.');
+            throw new RuntimeException('No se pudo preparar el archivado del estudiante.');
         }
 
         $stmt->bind_param('i', $id);
 
         if (!$stmt->execute()) {
             $stmt->close();
-            throw new RuntimeException('No se pudo eliminar el estudiante.');
+            throw new RuntimeException('No se pudo archivar el estudiante.');
         }
 
         $affected = $stmt->affected_rows;
@@ -3124,17 +3127,8 @@ function eliminarEstudiante(mysqli $conn, array $data): void
             $conn->rollback();
             jsonResponse(404, [
                 'success' => false,
-                'error' => 'El estudiante no existe o ya fue eliminado.',
+                'error' => 'El estudiante no existe o ya está archivado.',
             ]);
-        }
-
-        if (tableExists($conn, 'acudientes')) {
-            $deleteAcudiente = $conn->prepare('DELETE FROM acudientes WHERE estudiante_id = ?');
-            if ($deleteAcudiente) {
-                $deleteAcudiente->bind_param('i', $id);
-                $deleteAcudiente->execute();
-                $deleteAcudiente->close();
-            }
         }
 
         $conn->commit();
@@ -3148,11 +3142,34 @@ function eliminarEstudiante(mysqli $conn, array $data): void
 
     jsonResponse(200, [
         'success' => true,
-        'message' => 'Estudiante y acudiente eliminados correctamente.',
+        'message' => 'Estudiante archivado correctamente. Su información y la de su acudiente se conservan.',
     ]);
 }
 
-function eliminarRegistrosHistorial(mysqli $conn, array $data): void
+function restaurarEstudiante(mysqli $conn, array $data): void
+{
+    $id = (int) ($data['id'] ?? 0);
+    if ($id <= 0) {
+        jsonResponse(400, ['success' => false, 'error' => 'Debes enviar un ID válido para restaurar.']);
+    }
+
+    $stmt = $conn->prepare('UPDATE estudiantes SET activo = 1 WHERE id = ? AND activo = 0');
+    if (!$stmt) {
+        jsonResponse(500, ['success' => false, 'error' => 'No se pudo preparar la restauración del estudiante.']);
+    }
+    $stmt->bind_param('i', $id);
+    $stmt->execute();
+    $affected = $stmt->affected_rows;
+    $stmt->close();
+
+    if ($affected === 0) {
+        jsonResponse(404, ['success' => false, 'error' => 'El estudiante no existe o ya está activo.']);
+    }
+
+    jsonResponse(200, ['success' => true, 'message' => 'Estudiante restaurado correctamente.']);
+}
+
+function archivarRegistrosHistorial(mysqli $conn, array $data): void
 {
     $estudianteId = (int) ($data['estudiante_id'] ?? 0);
     $recordIdsRaw = $data['record_ids'] ?? [];
@@ -3197,7 +3214,7 @@ function eliminarRegistrosHistorial(mysqli $conn, array $data): void
         $lookup = $conn->prepare(
             "SELECT COUNT(*) AS total
              FROM registros_disciplinarios
-             WHERE estudiante_id = ? AND id IN ({$idList})"
+             WHERE estudiante_id = ? AND id IN ({$idList}) AND activo = 1"
         );
 
         if (!$lookup) {
@@ -3219,24 +3236,24 @@ function eliminarRegistrosHistorial(mysqli $conn, array $data): void
             ]);
         }
 
-        $delete = $conn->prepare(
-            "DELETE FROM registros_disciplinarios
-             WHERE estudiante_id = ? AND id IN ({$idList})"
+        $archive = $conn->prepare(
+            "UPDATE registros_disciplinarios SET activo = 0
+             WHERE estudiante_id = ? AND id IN ({$idList}) AND activo = 1"
         );
 
-        if (!$delete) {
-            throw new RuntimeException('No se pudo preparar la eliminación del historial disciplinario.');
+        if (!$archive) {
+            throw new RuntimeException('No se pudo preparar el archivado del historial disciplinario.');
         }
 
-        $delete->bind_param('i', $estudianteId);
+        $archive->bind_param('i', $estudianteId);
 
-        if (!$delete->execute()) {
-            $delete->close();
-            throw new RuntimeException('No se pudieron eliminar los registros seleccionados.');
+        if (!$archive->execute()) {
+            $archive->close();
+            throw new RuntimeException('No se pudieron archivar los registros seleccionados.');
         }
 
-        $deletedCount = (int) $delete->affected_rows;
-        $delete->close();
+        $deletedCount = (int) $archive->affected_rows;
+        $archive->close();
         $conn->commit();
     } catch (Throwable $exception) {
         $conn->rollback();
@@ -3247,8 +3264,8 @@ function eliminarRegistrosHistorial(mysqli $conn, array $data): void
     }
 
     $message = $deletedCount === 1
-        ? 'Registro disciplinario eliminado correctamente.'
-        : "Se eliminaron {$deletedCount} registros disciplinarios correctamente.";
+        ? 'Registro disciplinario archivado correctamente.'
+        : "Se archivaron {$deletedCount} registros disciplinarios correctamente.";
 
     jsonResponse(200, [
         'success' => true,
@@ -3449,16 +3466,20 @@ if ($method === 'POST') {
             actualizarEstudiante($conn, $payload);
             break;
 
-        case 'eliminarEstudiante':
-            eliminarEstudiante($conn, $payload);
+        case 'archivarEstudiante':
+            archivarEstudiante($conn, $payload);
+            break;
+
+        case 'restaurarEstudiante':
+            restaurarEstudiante($conn, $payload);
             break;
 
         case 'guardarRegistro':
             guardarRegistro($conn, $payload);
             break;
 
-        case 'eliminarRegistrosHistorial':
-            eliminarRegistrosHistorial($conn, $payload);
+        case 'archivarRegistrosHistorial':
+            archivarRegistrosHistorial($conn, $payload);
             break;
 
         case 'guardarAcudiente':
@@ -3485,8 +3506,8 @@ if ($method === 'POST') {
             actualizarUsuarioAdmin($conn, $payload);
             break;
 
-        case 'eliminarUsuarioAdmin':
-            eliminarUsuarioAdmin($conn, $payload);
+        case 'archivarUsuarioAdmin':
+            archivarUsuarioAdmin($conn, $payload);
             break;
 
         case 'importarPlanillaAcudientes':

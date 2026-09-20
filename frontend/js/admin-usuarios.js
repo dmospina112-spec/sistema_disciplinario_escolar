@@ -432,8 +432,8 @@ function renderAdminUsers() {
     actionBtn.type = 'button';
 
     if (user.activo) {
-      actionBtn.className = 'btn btn-sm btn-outline-danger';
-      actionBtn.textContent = 'Eliminar';
+      actionBtn.className = 'btn btn-sm btn-outline-warning';
+      actionBtn.textContent = 'Archivar';
       actionBtn.disabled = Boolean(user.es_actual);
       actionBtn.addEventListener('click', async () => {
         await deleteAdminUser(user);
@@ -721,14 +721,14 @@ async function submitAdminUserForm() {
 
 async function deleteAdminUser(user) {
   const fullName = `${user.nombre} ${user.apellido}`.trim() || user.usuario;
-  const confirmed = window.confirm(`¿Seguro que deseas eliminar a ${fullName}? Esta accion borrara la cuenta del listado.`);
+  const confirmed = window.confirm(`¿Seguro que deseas archivar a ${fullName}? La cuenta y su información se conservarán para poder reactivarla.`);
   if (!confirmed) {
     return;
   }
 
   try {
-    const result = await requestAdminUsers('eliminarUsuarioAdmin', 'POST', { id: Number(user.id) });
-    showAdminUsersMessage(result.message || 'Usuario eliminado correctamente.', 'success');
+    const result = await requestAdminUsers('archivarUsuarioAdmin', 'POST', { id: Number(user.id) });
+    showAdminUsersMessage(result.message || 'Usuario archivado correctamente.', 'success');
     removeAdminUserFromState(user.id);
     if (Number(adminUserEditingId) === Number(user.id)) {
       resetAdminUserForm();

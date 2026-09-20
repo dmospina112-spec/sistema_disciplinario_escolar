@@ -11,6 +11,7 @@ let buscarEstudiante;
 let formEstudiante;
 let infoEstudiante;
 let btnSiguienteEstudiante;
+let mostrarEstudiantesArchivados;
 
 let seccionEstudiantes;
 let seccionPlantillas;
@@ -35,7 +36,7 @@ let registroGuardadoPendienteId = null;
 
 const WORKFLOW_STEPS = ['estudiantes', 'plantillas', 'estimulos', 'acudiente'];
 const APP_BASE_URL = new URL('./', window.location.href);
-const FRONTEND_LOGO_URL = buildAppUrl('frontend/img/Logo.png');
+const FRONTEND_LOGO_URL = buildAppUrl('frontend/img/Logo-comportate.jpg');
 const FRONTEND_STYLES_URL = buildAppUrl('frontend/css/styles.css?v=20260408-22');
 
 function buildAppUrl(relativePath) {
@@ -59,6 +60,7 @@ function cacheDom() {
   formEstudiante = document.getElementById('formEstudiante');
   infoEstudiante = document.getElementById('infoEstudiante');
   btnSiguienteEstudiante = document.getElementById('btnSiguienteEstudiante');
+  mostrarEstudiantesArchivados = document.getElementById('mostrarEstudiantesArchivados');
 
   seccionEstudiantes = document.getElementById('seccionEstudiantes');
   seccionPlantillas = document.getElementById('seccionPlantillas');
@@ -95,12 +97,12 @@ function asegurarBotonEliminarHistorial() {
     botonEliminar.type = 'button';
     botonEliminar.id = 'btnEliminarHistorialSeleccionados';
     botonEliminar.disabled = true;
-    botonEliminar.title = 'Eliminar del historial disciplinario los registros seleccionados';
+    botonEliminar.title = 'Archivar del historial disciplinario los registros seleccionados';
     contenedorAcciones.insertBefore(botonEliminar, botonImprimir);
   }
 
-  botonEliminar.className = 'btn btn-sm btn-danger btn-historial-eliminar';
-  botonEliminar.textContent = 'Eliminar seleccionados';
+  botonEliminar.className = 'btn btn-sm btn-outline-warning btn-historial-eliminar';
+  botonEliminar.textContent = 'Archivar seleccionados';
 }
 
 function bindEvents() {
@@ -123,6 +125,10 @@ function bindEvents() {
     buscarEstudiante.addEventListener('input', actualizarBusquedaEstudiantes);
     buscarEstudiante.addEventListener('search', actualizarBusquedaEstudiantes);
   }
+
+  mostrarEstudiantesArchivados?.addEventListener('change', () => {
+    void cargarEstudiantes();
+  });
 
   if (btnSiguienteEstudiante) {
     btnSiguienteEstudiante.addEventListener('click', avanzarAPlantillas);
@@ -170,7 +176,7 @@ function bindEvents() {
     });
 
   btnImprimirHistorialSeleccionados?.addEventListener('click', imprimirHistorialSeleccionados);
-  btnEliminarHistorialSeleccionados?.addEventListener('click', eliminarHistorialSeleccionado);
+  btnEliminarHistorialSeleccionados?.addEventListener('click', archivarHistorialSeleccionado);
 }
 
 function updateStudentMetrics() {
@@ -262,7 +268,9 @@ async function request(action, method = 'GET', payload = null, query = {}) {
 
 async function cargarEstudiantes() {
   try {
-    const result = await request('obtenerEstudiantes');
+    const result = await request('obtenerEstudiantes', 'GET', null, {
+      incluir_archivados: mostrarEstudiantesArchivados?.checked ? '1' : '0',
+    });
     estudiantes = Array.isArray(result.data) ? result.data : [];
 
     llenarSelectEstudiantes();
@@ -401,9 +409,9 @@ function obtenerRegistrosHistorialSeleccionados() {
   return seleccionados;
 }
 
-async function eliminarHistorialSeleccionado() {
+async function archivarHistorialSeleccionado() {
   if (!estudianteSeleccionado?.id) {
-    alert('Selecciona un estudiante antes de eliminar registros del historial.');
+    alert('Selecciona un estudiante antes de archivar registros del historial.');
     return;
   }
 
@@ -412,15 +420,15 @@ async function eliminarHistorialSeleccionado() {
   );
 
   if (registrosSeleccionados.length === 0) {
-    alert('Selecciona al menos un registro del historial para eliminar.');
+    alert('Selecciona al menos un registro del historial para archivar.');
     return;
   }
 
   const cantidad = registrosSeleccionados.length;
   const confirmacion = confirm(
     cantidad === 1
-      ? '¿Seguro que deseas eliminar el registro disciplinario seleccionado?'
-      : `¿Seguro que deseas eliminar los ${cantidad} registros disciplinarios seleccionados?`
+      ? '¿Seguro que deseas archivar el registro disciplinario seleccionado?'
+      : `¿Seguro que deseas archivar los ${cantidad} registros disciplinarios seleccionados?`
   );
 
   if (!confirmacion) {
@@ -432,22 +440,22 @@ async function eliminarHistorialSeleccionado() {
   try {
     if (btnEliminarHistorialSeleccionados) {
       btnEliminarHistorialSeleccionados.disabled = true;
-      btnEliminarHistorialSeleccionados.textContent = 'Eliminando...';
+      btnEliminarHistorialSeleccionados.textContent = 'Archivando...';
     }
 
-    const result = await request('eliminarRegistrosHistorial', 'POST', {
+    const result = await request('archivarRegistrosHistorial', 'POST', {
       estudiante_id: Number(estudianteSeleccionado.id),
       record_ids: recordIds,
     });
 
     await cargarHistorialEstudiante();
-    alert(result.message || 'Registros eliminados correctamente.');
+    alert(result.message || 'Registros archivados correctamente.');
   } catch (error) {
     console.error(error);
-    alert(`No se pudieron eliminar los registros seleccionados: ${error.message}`);
+    alert(`No se pudieron archivar los registros seleccionados: ${error.message}`);
   } finally {
     if (btnEliminarHistorialSeleccionados) {
-      btnEliminarHistorialSeleccionados.textContent = 'Eliminar seleccionados';
+      btnEliminarHistorialSeleccionados.textContent = 'Archivar seleccionados';
     }
     actualizarBotonImprimirHistorial();
   }
@@ -604,7 +612,7 @@ function construirMarkupReporteDisciplinario(data) {
 
     <header class="disciplinary-report-header">
       <div class="disciplinary-report-brand">
-        <img src="${FRONTEND_LOGO_URL}" alt="Logo institucional" class="disciplinary-report-logo">
+        <img src="${FRONTEND_LOGO_URL}" alt="Logo Comportate" class="disciplinary-report-logo">
         <div>
           <span class="disciplinary-report-kicker">Reporte disciplinario PDF</span>
           <h3 class="disciplinary-report-heading">Reporte disciplinario del estudiante</h3>
@@ -738,7 +746,7 @@ function construirMarkupReporteEstimulos(data) {
 
     <header class="disciplinary-report-header">
       <div class="disciplinary-report-brand">
-        <img src="${FRONTEND_LOGO_URL}" alt="Logo institucional" class="disciplinary-report-logo">
+        <img src="${FRONTEND_LOGO_URL}" alt="Logo Comportate" class="disciplinary-report-logo">
         <div>
           <span class="disciplinary-report-kicker">Reporte de estímulos PDF</span>
           <h3 class="disciplinary-report-heading">Reporte de estímulos del estudiante</h3>
@@ -1151,6 +1159,9 @@ function llenarSelectEstudiantes(filtro = '') {
   selectEstudiante.innerHTML = '<option value="">Selecciona un estudiante...</option>';
 
   const coincidencias = estudiantes.filter((item) => {
+    if (!item.activo) {
+      return false;
+    }
     const texto = normalizarTextoBusqueda(`${item.nombre} ${item.apellido} ${item.numero_matricula}`);
     return texto.includes(textoFiltro);
   });
@@ -1217,6 +1228,12 @@ function llenarListaGestion() {
 
     info.appendChild(name);
     info.appendChild(matricula);
+    if (!item.activo) {
+      const estado = document.createElement('small');
+      estado.className = 'd-block text-warning-emphasis';
+      estado.textContent = 'Archivado';
+      info.appendChild(estado);
+    }
     identity.appendChild(avatar);
     identity.appendChild(info);
 
@@ -1229,14 +1246,22 @@ function llenarListaGestion() {
     editBtn.textContent = 'Editar';
     editBtn.addEventListener('click', () => editarEstudiante(item.id));
 
-    const deleteBtn = document.createElement('button');
-    deleteBtn.type = 'button';
-    deleteBtn.className = 'btn btn-sm btn-outline-danger';
-    deleteBtn.textContent = 'Eliminar';
-    deleteBtn.addEventListener('click', () => eliminarEstudiante(item.id));
+    const archiveBtn = document.createElement('button');
+    archiveBtn.type = 'button';
+    if (item.activo) {
+      archiveBtn.className = 'btn btn-sm btn-outline-warning';
+      archiveBtn.textContent = 'Archivar';
+      archiveBtn.addEventListener('click', () => archivarEstudiante(item.id));
+    } else {
+      archiveBtn.className = 'btn btn-sm btn-success';
+      archiveBtn.textContent = 'Restaurar';
+      archiveBtn.addEventListener('click', () => restaurarEstudiante(item.id));
+    }
 
-    buttons.appendChild(editBtn);
-    buttons.appendChild(deleteBtn);
+    if (item.activo) {
+      buttons.appendChild(editBtn);
+    }
+    buttons.appendChild(archiveBtn);
 
     row.appendChild(identity);
     row.appendChild(buttons);
@@ -1377,20 +1402,20 @@ function editarEstudianteSeleccionadoDesdeAcudiente() {
   formEstudiante?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-async function eliminarEstudiante(id) {
+async function archivarEstudiante(id) {
   const estudiante = estudiantes.find((item) => Number(item.id) === Number(id));
   const etiquetaEstudiante = estudiante
     ? `${estudiante.nombre} ${estudiante.apellido} (${estudiante.numero_matricula})`
     : 'este estudiante';
 
-  const confirmacion = confirm(`¿Seguro que deseas eliminar a ${etiquetaEstudiante}?`);
+  const confirmacion = confirm(`¿Seguro que deseas archivar a ${etiquetaEstudiante}? Su información se conservará y podrás restaurarla después.`);
   if (!confirmacion) {
     return;
   }
 
   try {
-    const result = await request('eliminarEstudiante', 'POST', { id });
-    alert(result.message || 'Estudiante eliminado.');
+    const result = await request('archivarEstudiante', 'POST', { id });
+    alert(result.message || 'Estudiante archivado.');
 
     if (estudianteSeleccionado?.id === id) {
       estudianteSeleccionado = null;
@@ -1400,7 +1425,27 @@ async function eliminarEstudiante(id) {
     await cargarEstudiantes();
   } catch (error) {
     console.error(error);
-    alert(`No se pudo eliminar el estudiante: ${error.message}`);
+    alert(`No se pudo archivar el estudiante: ${error.message}`);
+  }
+}
+
+async function restaurarEstudiante(id) {
+  const estudiante = estudiantes.find((item) => Number(item.id) === Number(id));
+  const etiquetaEstudiante = estudiante
+    ? `${estudiante.nombre} ${estudiante.apellido} (${estudiante.numero_matricula})`
+    : 'este estudiante';
+
+  if (!confirm(`¿Deseas restaurar a ${etiquetaEstudiante}?`)) {
+    return;
+  }
+
+  try {
+    const result = await request('restaurarEstudiante', 'POST', { id });
+    alert(result.message || 'Estudiante restaurado.');
+    await cargarEstudiantes();
+  } catch (error) {
+    console.error(error);
+    alert(`No se pudo restaurar el estudiante: ${error.message}`);
   }
 }
 
@@ -2166,7 +2211,8 @@ function volverAInicioDesdeAcudiente() {
 }
 
 window.editarEstudiante = editarEstudiante;
-window.eliminarEstudiante = eliminarEstudiante;
+window.archivarEstudiante = archivarEstudiante;
+window.restaurarEstudiante = restaurarEstudiante;
 window.generarReporteDisciplinarioPdf = generarReporteDisciplinarioPdf;
 window.generarReporteEstimulosPdf = generarReporteEstimulosPdf;
 

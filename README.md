@@ -80,7 +80,9 @@ Nota:
 - `GET api.php?action=obtenerEstudiante&id=1`
 - `POST api.php?action=agregarEstudiante`
 - `POST api.php?action=actualizarEstudiante`
-- `POST api.php?action=eliminarEstudiante`
+- `POST api.php?action=archivarEstudiante`
+- `POST api.php?action=restaurarEstudiante`
+- `POST api.php?action=archivarRegistrosHistorial`
 - `POST api.php?action=guardarRegistro`
 
 ## Verificacion rapida
@@ -106,6 +108,6 @@ Ruta alternativa:
 - `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\repair_xampp_mysql.ps1`
 
 ## Notas
-- La eliminacion de estudiantes es logica (`activo = 0`).
+- Los estudiantes, las cuentas de usuario y los registros disciplinarios se archivan (`activo = 0`); su información no se borra. Los estudiantes y las cuentas pueden restaurarse desde sus respectivos listados.
 - El proyecto queda configurado para usar `app_educativa_recuperada`.
 - La base antigua `app_educativa` puede permanecer aparte sin afectar la app.

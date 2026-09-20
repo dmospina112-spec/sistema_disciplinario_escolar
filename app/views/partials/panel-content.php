@@ -103,12 +103,12 @@
                     <div class="d-flex justify-content-end gap-2 mt-3 historial-actions">
                       <button
                         type="button"
-                        class="btn btn-sm btn-danger btn-historial-eliminar"
+                        class="btn btn-sm btn-outline-warning btn-historial-eliminar"
                         id="btnEliminarHistorialSeleccionados"
-                        title="Eliminar del historial disciplinario los registros seleccionados"
+                        title="Archivar del historial disciplinario los registros seleccionados"
                         disabled
                       >
-                        Eliminar seleccionados
+                        Archivar seleccionados
                       </button>
                       <button
                         type="button"
@@ -206,6 +206,10 @@
                   </button>
                 </form>
 
+                <div class="form-check form-switch mb-2">
+                  <input class="form-check-input" type="checkbox" role="switch" id="mostrarEstudiantesArchivados">
+                  <label class="form-check-label small" for="mostrarEstudiantesArchivados">Mostrar estudiantes archivados</label>
+                </div>
                 <div id="listaEstudiantesGestion" class="border rounded p-3 student-manage-list" style="max-height: 250px; overflow-y: auto;">
                   <small class="text-muted">Estudiantes recientes...</small>
                 </div>

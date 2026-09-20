@@ -36,7 +36,7 @@ body.site-body::after {
 }
 
 body.site-body::before {
-  background-image: url('../img/Logo.png');
+  background-image: url('../img/Logo-comportate.jpg');
   background-repeat: no-repeat;
   background-position: center center;
   background-size: min(960px, 82vw);

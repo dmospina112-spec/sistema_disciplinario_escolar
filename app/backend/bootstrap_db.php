@@ -97,6 +97,7 @@ function ensureDatabaseReady(): void
             faltas_tipo2 LONGTEXT NOT NULL,
             faltas_tipo3 LONGTEXT NOT NULL,
             estimulos LONGTEXT NOT NULL,
+            activo TINYINT(1) NOT NULL DEFAULT 1,
             fecha_registro TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             INDEX idx_registros_estudiante (estudiante_id),
             INDEX idx_registros_docente (docente_id),
@@ -215,6 +216,11 @@ function ensureDatabaseReady(): void
     }
 
     $serverConn->query("UPDATE acudientes SET apellido = '' WHERE apellido IS NULL");
+
+    $registroActivoColumnCheck = $serverConn->query("SHOW COLUMNS FROM registros_disciplinarios LIKE 'activo'");
+    if (!$registroActivoColumnCheck || $registroActivoColumnCheck->num_rows === 0) {
+        $serverConn->query("ALTER TABLE registros_disciplinarios ADD COLUMN activo TINYINT(1) NOT NULL DEFAULT 1 AFTER estimulos");
+    }
 
     $countResult = $serverConn->query('SELECT COUNT(*) AS total FROM docentes');
     $totalDocentes = 0;

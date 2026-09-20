@@ -47,10 +47,9 @@ $scriptJsVersion = (string) filemtime($projectRoot . '/frontend/js/script.js');
   <main class="login-shell container-xxl">
     <section class="login-hero">
       <div class="hero-brand">
-        <img src="frontend/img/Logo.png" alt="Escudo institucional" class="hero-logo">
+        <img src="frontend/img/Logo-comportate.jpg" alt="Logo Comportate" class="hero-logo">
         <div class="hero-brand-copy">
           <span class="hero-kicker">Plataforma docente</span>
-          <span class="hero-motto">Ciencia, amor y virtud</span>
         </div>
       </div>
 
@@ -212,9 +211,9 @@ $scriptJsVersion = (string) filemtime($projectRoot . '/frontend/js/script.js');
   <footer class="site-footer">
     <div class="site-footer-shell">
       <div class="site-footer-brand">
-        <img src="frontend/img/Logo.png" alt="Logo institucional" class="site-footer-logo">
+        <img src="frontend/img/Logo-comportate.jpg" alt="Logo Comportate" class="site-footer-logo">
         <div>
-          <strong>Institución Educativa Gilberto Alzate Avendaño</strong>
+          <strong>Tú comportaminto construye un entorno positivo</strong>
           <p>Plataforma de seguimiento disciplinario.</p>
         </div>
       </div>

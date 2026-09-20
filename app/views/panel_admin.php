@@ -44,7 +44,7 @@ $estudiantesJsVersion = $assetVersion($projectRoot . '/frontend/js/estudiantes.j
 $stylesVersion = $assetVersion($projectRoot . '/frontend/css/styles.css', '-logout-red-20260514');
 $scriptJsVersion = $assetVersion($projectRoot . '/frontend/js/script.js');
 $adminUsuariosJsVersion = $assetVersion($projectRoot . '/frontend/js/admin-usuarios.js');
-$heroLogoVersion = $assetVersion($projectRoot . '/frontend/img/Logo-hero-contrast-v3.png');
+$heroLogoVersion = $assetVersion($projectRoot . '/frontend/img/Logo-comportate.jpg');
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -73,10 +73,10 @@ $heroLogoVersion = $assetVersion($projectRoot . '/frontend/img/Logo-hero-contras
         <div class="admin-hero-grid">
           <div class="admin-hero-content">
             <div class="admin-hero-logo-stage">
-              <img src="frontend/img/Logo-hero-contrast-v3.png?v=<?php echo htmlspecialchars($heroLogoVersion, ENT_QUOTES, 'UTF-8'); ?>" alt="Logo institucional grande" class="admin-hero-logo-large">
+              <img src="frontend/img/Logo-comportate.jpg?v=<?php echo htmlspecialchars($heroLogoVersion, ENT_QUOTES, 'UTF-8'); ?>" alt="Logo Comportate" class="admin-hero-logo-large">
             </div>
 
-            <p class="admin-hero-institution">Institución Educativa Gilberto Alzate Avendaño</p>
+            <p class="admin-hero-institution"></p>
 
             <div class="admin-hero-actions">
               <button
@@ -266,9 +266,9 @@ $heroLogoVersion = $assetVersion($projectRoot . '/frontend/img/Logo-hero-contras
   <footer class="site-footer">
     <div class="site-footer-shell">
       <div class="site-footer-brand">
-        <img src="frontend/img/Logo.png" alt="Logo institucional" class="site-footer-logo">
+        <img src="frontend/img/Logo-comportate.jpg" alt="Logo Comportate" class="site-footer-logo">
         <div>
-          <strong>Institución Educativa Gilberto Alzate Avendaño</strong>
+          <strong>Tú comportaminto construye un entorno positivo</strong>
           <p>Panel administrativo para control de usuarios, accesos y operación institucional.</p>
         </div>
       </div>

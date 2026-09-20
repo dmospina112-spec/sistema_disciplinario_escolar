@@ -66,6 +66,7 @@ CREATE TABLE registros_disciplinarios (
     faltas_tipo2 LONGTEXT NOT NULL,
     faltas_tipo3 LONGTEXT NOT NULL,
     estimulos LONGTEXT NOT NULL,
+    activo TINYINT(1) NOT NULL DEFAULT 1,
     fecha_registro TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_registros_estudiante (estudiante_id),
     INDEX idx_registros_docente (docente_id),
