@@ -2,7 +2,7 @@
     <div class="container my-4 workspace-shell">
       <div class="workspace-toolbar">
         <div class="workspace-toolbar-copy">
-          <span class="workspace-kicker">Ruta académica</span>
+          
           <h2 class="workspace-title">Seguimiento disciplinario y acompañamiento</h2>
           <p class="workspace-copy">
             Selecciona el estudiante, construye el reporte y consolida la comunicación con el acudiente
