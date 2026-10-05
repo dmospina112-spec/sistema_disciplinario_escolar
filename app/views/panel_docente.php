@@ -28,7 +28,7 @@ $projectRoot = dirname(__DIR__, 2);
 $chatbotCssVersion = (string) filemtime($projectRoot . '/frontend/chatbot/chatbot.css');
 $chatbotJsVersion = (string) filemtime($projectRoot . '/frontend/chatbot/chatbot.js') . '-20260416';
 $estudiantesJsVersion = (string) filemtime($projectRoot . '/frontend/js/estudiantes.js');
-$stylesVersion = (string) filemtime($projectRoot . '/frontend/css/styles.css') . '-logout-red-20260514';
+$stylesVersion = (string) md5_file($projectRoot . '/frontend/css/styles.css');
 $scriptJsVersion = (string) filemtime($projectRoot . '/frontend/js/script.js');
 ?>
 <!DOCTYPE html>
@@ -54,7 +54,7 @@ $scriptJsVersion = (string) filemtime($projectRoot . '/frontend/js/script.js');
 
   <div class="container py-5">
     <header class="page-header text-center mb-5">
-      <img src="frontend/img/Logo-comportate.jpg" alt="Logo Comportate" class="brand-logo img-fluid mb-3">
+      <img src="frontend/img/Logo-comportate-transparent.png" alt="Logo Comportate" class="brand-logo img-fluid mb-3">
       <h1 class="text-primary">Panel Docente</h1>
       <h2 class="h4 text-primary"></h2>
       <p id="userGreeting" class="text-muted small mt-2"></p>
@@ -66,11 +66,14 @@ $scriptJsVersion = (string) filemtime($projectRoot . '/frontend/js/script.js');
   <footer class="site-footer">
     <div class="site-footer-shell">
       <div class="site-footer-brand">
-        <img src="frontend/img/Logo-comportate.jpg" alt="Logo Comportate" class="site-footer-logo">
+        <img src="frontend/img/Logo-comportate-white-clean.png" alt="Logo Comportate" class="site-footer-logo">
         <div>
           <strong>Tú comportaminto construye un entorno positivo</strong>
           <p>Panel docente para estudiantes, reportes, acudientes e historial disciplinario.</p>
         </div>
+      </div>
+      <div class="site-footer-meta">
+        <a class="site-footer-policy-link" href="politica_privacidad.php">Política de privacidad</a>
       </div>
     </div>
   </footer>

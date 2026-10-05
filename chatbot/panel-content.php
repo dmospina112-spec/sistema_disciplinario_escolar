@@ -42,7 +42,7 @@
           <span class="workflow-stage-index">3</span>
           <span class="workflow-stage-body">
             <span class="workflow-stage-label">Estímulos</span>
-            <span class="workflow-stage-copy">Reconocimientos y avance</span>
+            <span class="workflow-stage-copy">Diploma por buen comportamiento</span>
           </span>
         </button>
 
@@ -387,32 +387,25 @@
     <!-- SECCIÓN 3: ESTÍMULOS -->
     <section id="seccionEstimulos" class="container my-5 d-none workspace-section">
       <div class="text-center mb-4">
-        <h2 class="text-success fw-bold text-uppercase">Plantillas de Estímulos</h2>
-        <p class="text-muted fs-5">ESTÍMULOS</p>
+        <h2 class="text-success fw-bold text-uppercase">Reconocimiento al buen comportamiento</h2>
+        <p class="text-muted fs-5">DIPLOMA DE ESTÍMULO</p>
       </div>
 
       <div class="card p-4 shadow-sm">
         <div class="form-check mb-3">
-          <input class="form-check-input" type="checkbox" id="estimulo1">
-          <label class="form-check-label" for="estimulo1">
-            Candidato a promoción anticipada.
+          <input class="form-check-input" type="checkbox" id="estimuloBuenComportamiento">
+          <label class="form-check-label fw-semibold" for="estimuloBuenComportamiento">
+            Reconocer y destacar el buen comportamiento del estudiante.
           </label>
         </div>
-        <div class="form-check mb-3">
-          <input class="form-check-input" type="checkbox" id="estimulo2">
-          <label class="form-check-label" for="estimulo2">
-            Los estudiantes que obtengan resultados destacados en las pruebas externas, olimpiadas del conocimiento, procesos investigativos se hará un reconocimiento público.
-          </label>
-        </div>
-        <div class="form-check mb-3">
-          <input class="form-check-input" type="checkbox" id="estimulo3">
-          <label class="form-check-label" for="estimulo3">
-            Al finalizar cada periodo académico se le hará reconocimiento al estudiante destacado de cada grupo en cuanto a su desempeño académico como a los valores institucionales.
-          </label>
+        <div class="mb-3">
+          <label class="form-label" for="motivoReconocimiento">Motivo del reconocimiento</label>
+          <textarea class="form-control" id="motivoReconocimiento" rows="3" maxlength="500" placeholder="Describe brevemente las acciones o valores que se desean destacar."></textarea>
+          <div class="form-text">Este mensaje aparecerá en el diploma que se enviará al acudiente.</div>
         </div>
 
           <div class="mt-4 d-flex flex-wrap gap-2">
-            <button type="button" class="btn btn-primary" id="btnReporteEstimulos">Generar reporte</button>
+            <button type="button" class="btn btn-primary" id="btnReporteEstimulos">Vista previa del diploma</button>
           </div>
 
         <div id="reporteEstimulos" class="mt-4 p-3 border border-success rounded bg-light d-none workspace-report-box disciplinary-report-box"></div>

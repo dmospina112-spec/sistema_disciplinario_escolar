@@ -21,7 +21,7 @@ header('Expires: 0');
 header_remove('ETag');
 header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
 
-$stylesVersion = (string) filemtime(__DIR__ . '/styles/styles.css');
+$stylesVersion = (string) md5_file(__DIR__ . '/styles/styles.css');
 $scriptJsVersion = (string) filemtime(__DIR__ . '/js/script.js');
 ?>
 <!DOCTYPE html>

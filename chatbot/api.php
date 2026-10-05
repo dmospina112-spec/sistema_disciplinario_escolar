@@ -262,7 +262,7 @@ function smtpSendCommand($socket, string $command, array $expectedCodes, string 
     return $response;
 }
 
-function buildSmtpMessage(string $to, string $subject, string $body, array $config): string
+function buildSmtpMessage(string $to, string $subject, string $body, array $config, array $attachments = []): string
 {
     $body = str_replace(["\r\n", "\r"], "\n", $body);
     $body = preg_replace("/(?m)^\./", '..', $body);
@@ -275,15 +275,46 @@ function buildSmtpMessage(string $to, string $subject, string $body, array $conf
         'Reply-To: ' . formatMailboxHeader($config['from'], $config['from_name']),
         'Subject: ' . encodeMimeHeaderValue($subject),
         'MIME-Version: 1.0',
-        'Content-Type: text/plain; charset=UTF-8',
-        'Content-Transfer-Encoding: base64',
         'X-Mailer: App Educativa SMTP',
     ];
 
-    return implode("\r\n", $headers) . "\r\n\r\n" . $bodyEncoded . "\r\n";
+    if ($attachments === []) {
+        $headers[] = 'Content-Type: text/plain; charset=UTF-8';
+        $headers[] = 'Content-Transfer-Encoding: base64';
+        return implode("\r\n", $headers) . "\r\n\r\n" . $bodyEncoded . "\r\n";
+    }
+
+    $boundary = '=_AppEducativa_' . bin2hex(random_bytes(16));
+    $headers[] = 'Content-Type: multipart/mixed; boundary="' . $boundary . '"';
+    $parts = [
+        '--' . $boundary,
+        'Content-Type: text/plain; charset=UTF-8',
+        'Content-Transfer-Encoding: base64',
+        '',
+        $bodyEncoded,
+    ];
+
+    foreach ($attachments as $attachment) {
+        $filename = basename((string) ($attachment['filename'] ?? 'archivo.pdf'));
+        $contentType = (string) ($attachment['content_type'] ?? 'application/octet-stream');
+        $content = (string) ($attachment['content'] ?? '');
+        $filename = preg_replace('/[^A-Za-z0-9._-]/', '_', $filename) ?: 'archivo.pdf';
+        if (!preg_match('/^[A-Za-z0-9.+-]+\/[A-Za-z0-9.+-]+$/', $contentType)) {
+            throw new RuntimeException('El tipo del archivo adjunto no es válido.');
+        }
+        $parts[] = '--' . $boundary;
+        $parts[] = 'Content-Type: ' . $contentType . '; name="' . $filename . '"';
+        $parts[] = 'Content-Transfer-Encoding: base64';
+        $parts[] = 'Content-Disposition: attachment; filename="' . $filename . '"';
+        $parts[] = '';
+        $parts[] = rtrim(chunk_split(base64_encode($content), 76, "\r\n"));
+    }
+
+    $parts[] = '--' . $boundary . '--';
+    return implode("\r\n", $headers) . "\r\n\r\n" . implode("\r\n", $parts) . "\r\n";
 }
 
-function sendEmailUsingSmtp(string $to, string $subject, string $body, array $config): void
+function sendEmailUsingSmtp(string $to, string $subject, string $body, array $config, array $attachments = []): void
 {
     validateMailTransportConfig($config);
 
@@ -354,7 +385,7 @@ function sendEmailUsingSmtp(string $to, string $subject, string $body, array $co
         smtpSendCommand($socket, 'RCPT TO:<' . $to . '>', [250, 251], 'RCPT TO');
         smtpSendCommand($socket, 'DATA', [354], 'DATA');
 
-        $message = buildSmtpMessage($to, $subject, $body, $config);
+        $message = buildSmtpMessage($to, $subject, $body, $config, $attachments);
         $written = fwrite($socket, $message . "\r\n.\r\n");
         if ($written === false) {
             throw new RuntimeException('No se pudo enviar el contenido del mensaje SMTP.');
@@ -2085,6 +2116,67 @@ function guardarNotificacionAcudiente(mysqli $conn, array $data): void
     ]);
 }
 
+function diplomaPdfText(string $text, float $x, float $y, int $size, bool $bold = false, array $color = [0.09, 0.23, 0.40], bool $center = false): string
+{
+    $encoded = @iconv('UTF-8', 'Windows-1252//TRANSLIT//IGNORE', $text);
+    if (!is_string($encoded)) {
+        $encoded = preg_replace('/[^\x20-\x7E]/', '', $text) ?? '';
+    }
+    $encoded = str_replace(["\\", '(', ')', "\r", "\n"], ["\\\\", '\\(', '\\)', '', ''], $encoded);
+    if ($center) {
+        $x = max(24, (842 - (strlen($encoded) * $size * 0.51)) / 2);
+    }
+    [$red, $green, $blue] = $color;
+    $font = $bold ? 'F2' : 'F1';
+    return sprintf("BT %.3F %.3F %.3F rg /%s %d Tf %.2F %.2F Td (%s) Tj ET\n", $red, $green, $blue, $font, $size, $x, $y, $encoded);
+}
+
+function buildDiplomaPdf(string $studentName, string $reason, string $date): string
+{
+    $stream = "q\n0.985 0.98 0.95 rg 0 0 842 595 re f\nQ\n";
+    $stream .= "q\n0.09 0.23 0.40 RG 10 w 22 22 798 551 re S\n0.76 0.59 0.21 RG 3 w 34 34 774 527 re S\nQ\n";
+    $stream .= diplomaPdfText('RECONOCIMIENTO ESPECIAL', 0, 465, 17, true, [0.70, 0.52, 0.13], true);
+    $stream .= diplomaPdfText('DIPLOMA AL BUEN COMPORTAMIENTO', 0, 405, 29, true, [0.09, 0.23, 0.40], true);
+    $stream .= diplomaPdfText('Se otorga este reconocimiento a', 0, 347, 17, false, [0.28, 0.34, 0.42], true);
+    $stream .= diplomaPdfText($studentName, 0, 297, 26, true, [0.09, 0.23, 0.40], true);
+    $stream .= "q\n0.76 0.59 0.21 RG 1.5 w 130 279 m 712 279 l S\nQ\n";
+    $stream .= diplomaPdfText('Por demostrar un comportamiento ejemplar y aportar positivamente a su comunidad.', 0, 238, 14, false, [0.20, 0.26, 0.34], true);
+    $stream .= diplomaPdfText('MOTIVO DEL RECONOCIMIENTO', 0, 190, 12, true, [0.70, 0.52, 0.13], true);
+    $reasonLines = wordwrap(trim($reason), 75, "\n", true);
+    $reasonParts = array_slice(explode("\n", $reasonLines), 0, 3);
+    $y = 164;
+    foreach ($reasonParts as $line) {
+        $stream .= diplomaPdfText($line, 0, $y, 13, false, [0.28, 0.34, 0.42], true);
+        $y -= 21;
+    }
+    $stream .= diplomaPdfText($date, 0, 82, 13, false, [0.39, 0.44, 0.50], true);
+    $stream .= "q\n0.09 0.23 0.40 RG 1 w 310 61 m 532 61 l S\nQ\n";
+    $stream .= diplomaPdfText('Docente responsable', 0, 43, 11, false, [0.09, 0.23, 0.40], true);
+
+    $objects = [
+        1 => '<< /Type /Catalog /Pages 2 0 R >>',
+        2 => '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+        3 => '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>',
+        4 => '<< /Length ' . strlen($stream) . ">>\nstream\n" . $stream . "endstream",
+        5 => '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
+        6 => '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',
+    ];
+
+    $pdf = "%PDF-1.4\n%\xE2\xE3\xCF\xD3\n";
+    $offsets = [0];
+    foreach ($objects as $id => $object) {
+        $offsets[$id] = strlen($pdf);
+        $pdf .= $id . " 0 obj\n" . $object . "\nendobj\n";
+    }
+    $xrefOffset = strlen($pdf);
+    $pdf .= "xref\n0 " . (count($objects) + 1) . "\n0000000000 65535 f \n";
+    for ($id = 1; $id <= count($objects); $id++) {
+        $pdf .= sprintf("%010d 00000 n \n", $offsets[$id]);
+    }
+    $pdf .= 'trailer << /Size ' . (count($objects) + 1) . " /Root 1 0 R >>\nstartxref\n" . $xrefOffset . "\n%%EOF";
+    return $pdf;
+}
+
 function enviarCorreoAcudiente(mysqli $conn, array $data): void
 {
     $estudianteId = (int) ($data['estudiante_id'] ?? 0);
@@ -2092,6 +2184,8 @@ function enviarCorreoAcudiente(mysqli $conn, array $data): void
     $correo = normalizeText($data['correo'] ?? '');
     $asunto = normalizeText($data['asunto'] ?? '');
     $mensaje = normalizeText($data['mensaje'] ?? '');
+    $enviarDiploma = filter_var($data['diploma'] ?? false, FILTER_VALIDATE_BOOLEAN);
+    $motivoReconocimiento = normalizeText($data['motivo_reconocimiento'] ?? '');
 
     if ($estudianteId <= 0 || $correo === '' || $asunto === '' || $mensaje === '') {
         jsonResponse(400, [
@@ -2114,8 +2208,81 @@ function enviarCorreoAcudiente(mysqli $conn, array $data): void
         ]);
     }
 
+    $attachments = [];
+    if ($enviarDiploma) {
+        if ($motivoReconocimiento === '' || mb_strlen($motivoReconocimiento, 'UTF-8') > 500) {
+            jsonResponse(400, [
+                'success' => false,
+                'error' => 'El motivo del reconocimiento es obligatorio y debe tener máximo 500 caracteres.',
+            ]);
+        }
+
+        $stmt = $conn->prepare(
+            'SELECT e.nombre, e.apellido, a.correo AS acudiente_correo
+             FROM estudiantes e
+             LEFT JOIN acudientes a ON a.estudiante_id = e.id
+             WHERE e.id = ? AND e.activo = 1
+             LIMIT 1'
+        );
+        if (!$stmt) {
+            jsonResponse(500, ['success' => false, 'error' => 'No se pudo validar el acudiente del estudiante.']);
+        }
+        $stmt->bind_param('i', $estudianteId);
+        $stmt->execute();
+        $student = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if (!$student || strtolower(trim((string) ($student['acudiente_correo'] ?? ''))) !== strtolower($correo)) {
+            jsonResponse(400, [
+                'success' => false,
+                'error' => 'El correo destino debe ser el del acudiente registrado para este estudiante.',
+            ]);
+        }
+
+        if ($registroId <= 0) {
+            jsonResponse(400, ['success' => false, 'error' => 'Guarda el registro de estímulo antes de enviar el diploma.']);
+        }
+        $estimulosColumn = tableColumnExists($conn, 'registros_disciplinarios', 'estimulos')
+            ? 'estimulos'
+            : (tableColumnExists($conn, 'registros_disciplinarios', 'estímulos') ? '`estímulos`' : '');
+        if ($estimulosColumn === '') {
+            jsonResponse(500, ['success' => false, 'error' => 'No se encontró el campo de estímulos para validar el diploma.']);
+        }
+        $registroStmt = $conn->prepare("SELECT id, {$estimulosColumn} AS estimulos FROM registros_disciplinarios WHERE id = ? AND estudiante_id = ? LIMIT 1");
+        if (!$registroStmt) {
+            jsonResponse(500, ['success' => false, 'error' => 'No se pudo validar el registro del diploma.']);
+        }
+        $registroStmt->bind_param('ii', $registroId, $estudianteId);
+        $registroStmt->execute();
+        $registroValido = $registroStmt->get_result()->fetch_assoc();
+        $registroStmt->close();
+        if (!$registroValido) {
+            jsonResponse(400, ['success' => false, 'error' => 'El registro no corresponde al estudiante seleccionado.']);
+        }
+        $estimulosGuardados = decodeJsonColumnArray((string) ($registroValido['estimulos'] ?? ''));
+        $tieneEstimuloValido = false;
+        foreach ($estimulosGuardados as $estimuloGuardado) {
+            if (stripos((string) $estimuloGuardado, 'Buen comportamiento') === 0) {
+                $tieneEstimuloValido = true;
+                break;
+            }
+        }
+        if (!$tieneEstimuloValido) {
+            jsonResponse(400, ['success' => false, 'error' => 'El registro no contiene el estímulo de buen comportamiento.']);
+        }
+
+        $nombreEstudiante = trim((string) ($student['nombre'] ?? '') . ' ' . (string) ($student['apellido'] ?? ''));
+        $meses = [1 => 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+        $fechaDiploma = date('j') . ' de ' . $meses[(int) date('n')] . ' de ' . date('Y');
+        $attachments[] = [
+            'filename' => 'diploma-buen-comportamiento.pdf',
+            'content_type' => 'application/pdf',
+            'content' => buildDiplomaPdf($nombreEstudiante, $motivoReconocimiento, $fechaDiploma),
+        ];
+    }
+
     try {
-        sendEmailUsingSmtp($correo, $asunto, $mensaje, getMailTransportConfig());
+        sendEmailUsingSmtp($correo, $asunto, $mensaje, getMailTransportConfig(), $attachments);
     } catch (Throwable $exception) {
         jsonResponse(500, [
             'success' => false,

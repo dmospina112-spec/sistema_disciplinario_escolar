@@ -24,6 +24,8 @@ let historialList;
 let historialEmpty;
 let btnImprimirHistorialSeleccionados;
 let btnEliminarHistorialSeleccionados;
+let btnVerHistorialArchivado;
+let historialArchivadoVisible = false;
 let historialRegistrosCache = new Map();
 let historialRegistros = [];
 
@@ -36,7 +38,7 @@ let registroGuardadoPendienteId = null;
 
 const WORKFLOW_STEPS = ['estudiantes', 'plantillas', 'estimulos', 'acudiente'];
 const APP_BASE_URL = new URL('./', window.location.href);
-const FRONTEND_LOGO_URL = buildAppUrl('frontend/img/Logo-comportate.jpg');
+const FRONTEND_LOGO_URL = buildAppUrl('frontend/img/Logo-comportate-transparent.png');
 const FRONTEND_STYLES_URL = buildAppUrl('frontend/css/styles.css?v=20260408-22');
 
 function buildAppUrl(relativePath) {
@@ -73,6 +75,7 @@ function cacheDom() {
   btnImprimirHistorialSeleccionados = document.getElementById('btnImprimirHistorialSeleccionados');
   asegurarBotonEliminarHistorial();
   btnEliminarHistorialSeleccionados = document.getElementById('btnEliminarHistorialSeleccionados');
+  btnVerHistorialArchivado = document.getElementById('btnVerHistorialArchivado');
   acudienteLoading = document.getElementById('acudienteLoading');
   workflowButtons = Array.from(document.querySelectorAll('[data-workflow-step]'));
   adminMetricEstudiantes = document.getElementById('adminMetricEstudiantes');
@@ -157,6 +160,7 @@ function bindEvents() {
   [
     'asuntoNotificacionAcudiente',
     'notificacionAcudienteTexto',
+    'motivoReconocimiento',
   ].forEach((id) => {
     const input = document.getElementById(id);
     if (!input) {
@@ -175,8 +179,26 @@ function bindEvents() {
       });
     });
 
+  document.getElementById('motivoReconocimiento')?.addEventListener('input', () => {
+    limpiarRegistroGuardadoPendiente();
+    if (tieneReconocimientoBuenComportamiento()) {
+      generarNotificacionAcudiente(false);
+    }
+  });
+
   btnImprimirHistorialSeleccionados?.addEventListener('click', imprimirHistorialSeleccionados);
   btnEliminarHistorialSeleccionados?.addEventListener('click', archivarHistorialSeleccionado);
+  btnVerHistorialArchivado?.addEventListener('click', async () => {
+    historialArchivadoVisible = !historialArchivadoVisible;
+    btnVerHistorialArchivado.textContent = historialArchivadoVisible ? 'Ver historial activo' : 'Ver archivados';
+    await cargarHistorialEstudiante();
+  });
+  historialList?.addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-recuperar-registro]');
+    if (button) {
+      await recuperarRegistroHistorial(Number(button.dataset.recuperarRegistro));
+    }
+  });
 }
 
 function updateStudentMetrics() {
@@ -292,6 +314,7 @@ async function cargarHistorialEstudiante() {
   try {
     const result = await request('historialEstudiante', 'GET', null, {
       estudiante_id: Number(estudianteSeleccionado.id),
+      incluir_archivados: historialArchivadoVisible ? '1' : '0',
     });
     const registros = Array.isArray(result.data) ? result.data : [];
     mostrarHistorialEstudiante(registros);
@@ -338,6 +361,7 @@ function mostrarHistorialEstudiante(registros = []) {
     checkbox.type = 'checkbox';
     checkbox.className = 'form-check-input historial-select-checkbox';
     checkbox.dataset.recordKey = recordKey;
+    checkbox.hidden = historialArchivadoVisible;
     checkbox.addEventListener('change', actualizarBotonImprimirHistorial);
 
     const title = document.createElement('strong');
@@ -353,6 +377,16 @@ function mostrarHistorialEstudiante(registros = []) {
     header.appendChild(fecha);
 
     item.appendChild(header);
+
+    if (historialArchivadoVisible) {
+      const recover = document.createElement('button');
+      recover.type = 'button';
+      recover.className = 'btn btn-sm btn-outline-success mb-2';
+      recover.textContent = 'Recuperar';
+      recover.dataset.recuperarRegistro = String(registro.id || '');
+      recover.disabled = !registro.id;
+      item.appendChild(recover);
+    }
 
     const docente = document.createElement('p');
     docente.className = 'mb-1 small text-secondary';
@@ -379,7 +413,31 @@ function mostrarHistorialEstudiante(registros = []) {
   actualizarBotonImprimirHistorial();
 }
 
+async function recuperarRegistroHistorial(recordId) {
+  if (!estudianteSeleccionado?.id || !recordId) return;
+  if (!confirm('¿Seguro que deseas recuperar este registro disciplinario?')) return;
+
+  try {
+    const result = await request('recuperarRegistroHistorial', 'POST', {
+      estudiante_id: Number(estudianteSeleccionado.id),
+      record_id: Number(recordId),
+    });
+    await cargarHistorialEstudiante();
+    alert(result.message || 'Registro disciplinario recuperado correctamente.');
+  } catch (error) {
+    console.error(error);
+    alert(`No se pudo recuperar el registro: ${error.message}`);
+  }
+}
+
 function actualizarBotonImprimirHistorial() {
+  if (historialArchivadoVisible) {
+    if (btnEliminarHistorialSeleccionados) btnEliminarHistorialSeleccionados.hidden = true;
+    if (btnImprimirHistorialSeleccionados) btnImprimirHistorialSeleccionados.hidden = true;
+    return;
+  }
+  if (btnEliminarHistorialSeleccionados) btnEliminarHistorialSeleccionados.hidden = false;
+  if (btnImprimirHistorialSeleccionados) btnImprimirHistorialSeleccionados.hidden = false;
   if (!btnImprimirHistorialSeleccionados && !btnEliminarHistorialSeleccionados) {
     return;
   }
@@ -562,7 +620,7 @@ function construirRegistrosHistorialMarkup(registros = []) {
 function construirDatosReporteDisciplinario() {
   const estudiante = obtenerEstudianteActual();
   const faltasActuales = obtenerFaltasPorTipo();
-  const estimulosActuales = obtenerSeleccion('#seccionEstimulos input[type="checkbox"]');
+  const estimulosActuales = obtenerEstimulosSeleccionados();
   const registros = Array.isArray(historialRegistros) ? [...historialRegistros] : [];
   const docente = [window.__panelUser?.nombre, window.__panelUser?.apellido].filter(Boolean).join(' ') || 'Docente no identificado';
 
@@ -696,7 +754,7 @@ function construirRegistrosEstimulosMarkup(registros = []) {
 
 function construirDatosReporteEstimulos() {
   const estudiante = obtenerEstudianteActual();
-  const estimulosActuales = obtenerSeleccion('#seccionEstimulos input[type="checkbox"]');
+  const estimulosActuales = obtenerEstimulosSeleccionados();
   const registros = Array.isArray(historialRegistros) ? [...historialRegistros] : [];
   const registrosConEstimulos = obtenerRegistrosConEstimulos(registros);
   const docente = [window.__panelUser?.nombre, window.__panelUser?.apellido].filter(Boolean).join(' ') || 'Docente no identificado';
@@ -1475,6 +1533,10 @@ function limpiarSeleccionesPlantilla() {
 
   localStorage.removeItem('faltasSeleccionadas');
   localStorage.removeItem('estimulosSeleccionados');
+  const motivoReconocimiento = document.getElementById('motivoReconocimiento');
+  if (motivoReconocimiento) {
+    motivoReconocimiento.value = '';
+  }
 }
 
 function seleccionarEstudiante() {
@@ -1587,6 +1649,12 @@ async function avanzarAAcudiente() {
     return;
   }
 
+  if (tieneReconocimientoBuenComportamiento() && !obtenerMotivoReconocimiento()) {
+    alert('Escribe el motivo del reconocimiento antes de continuar para incluirlo en el diploma.');
+    document.getElementById('motivoReconocimiento')?.focus();
+    return;
+  }
+
   seccionEstudiantes?.classList.add('d-none');
   seccionPlantillas?.classList.add('d-none');
   seccionEstimulos?.classList.add('d-none');
@@ -1594,6 +1662,20 @@ async function avanzarAAcudiente() {
 
   actualizarCabeceraAcudiente();
   await cargarAcudiente();
+
+  const enviarDiplomaLabel = document.getElementById('btnEnviarCorreoAcudiente')?.querySelector('span:first-child');
+  if (tieneReconocimientoBuenComportamiento()) {
+    const asunto = document.getElementById('asuntoNotificacionAcudiente');
+    if (asunto) {
+      asunto.value = `Diploma de reconocimiento para ${estudianteSeleccionado.nombre} ${estudianteSeleccionado.apellido}`;
+    }
+    if (enviarDiplomaLabel) {
+      enviarDiplomaLabel.textContent = 'Guardar y enviar diploma al acudiente';
+    }
+    generarNotificacionAcudiente(false);
+  } else if (enviarDiplomaLabel) {
+    enviarDiplomaLabel.textContent = 'Guardar y enviar al correo electrónico';
+  }
 
   updateWorkflowUI('acudiente');
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1629,6 +1711,23 @@ function obtenerFaltasPorTipo() {
     tipo2: obtenerSeleccion('#faltasTipo2 input[type="checkbox"]'),
     tipo3: obtenerSeleccion('#faltasTipo3 input[type="checkbox"]'),
   };
+}
+
+function obtenerMotivoReconocimiento() {
+  return document.getElementById('motivoReconocimiento')?.value.trim() || '';
+}
+
+function tieneReconocimientoBuenComportamiento() {
+  return Boolean(document.getElementById('estimuloBuenComportamiento')?.checked);
+}
+
+function obtenerEstimulosSeleccionados() {
+  const estimulos = obtenerSeleccion('#seccionEstimulos input[type="checkbox"]');
+  if (tieneReconocimientoBuenComportamiento()) {
+    const motivo = obtenerMotivoReconocimiento();
+    return [`Buen comportamiento${motivo ? `: ${motivo}` : ''}`];
+  }
+  return estimulos;
 }
 
 function actualizarCabeceraAcudiente() {
@@ -1869,7 +1968,7 @@ function construirTextoNotificacion() {
   const matricula = estudianteSeleccionado?.numero_matricula || 'N/A';
   const fecha = new Date().toLocaleString('es-CO');
   const faltas = obtenerFaltasPorTipo();
-  const estimulos = obtenerSeleccion('#seccionEstimulos input[type="checkbox"]');
+  const estimulos = obtenerEstimulosSeleccionados();
 
   const bloques = [
     formatearBloqueInforme('Faltas tipo 1', faltas.tipo1),
@@ -1886,7 +1985,9 @@ function construirTextoNotificacion() {
   return [
     saludo,
     '',
-    `Por medio de la presente se comparte el informe del estudiante ${nombreEstudiante} (Matrícula: ${matricula}) con fecha ${fecha}.`,
+    tieneReconocimientoBuenComportamiento()
+      ? `Nos complace destacar el buen comportamiento de ${nombreEstudiante} (Matrícula: ${matricula}). Adjuntamos su diploma de reconocimiento. Fecha: ${fecha}.`
+      : `Por medio de la presente se comparte el informe del estudiante ${nombreEstudiante} (Matrícula: ${matricula}) con fecha ${fecha}.`,
     '',
     'Resumen del informe:',
     bloques.join('\n\n'),
@@ -2009,13 +2110,17 @@ function construirPayloadRegistroActual() {
     estudiante_id: Number(estudianteSeleccionado.id),
     docente_id: obtenerDocenteIdSesion(),
     faltas: obtenerFaltasPorTipo(),
-    estimulos: obtenerSeleccion('#seccionEstimulos input[type="checkbox"]'),
+    estimulos: obtenerEstimulosSeleccionados(),
   };
 }
 
 async function guardarRegistroActual({ guardarNotificacion = true } = {}) {
   if (!estudianteSeleccionado) {
     throw new Error('No hay un estudiante seleccionado para guardar el registro.');
+  }
+
+  if (tieneReconocimientoBuenComportamiento() && !obtenerMotivoReconocimiento()) {
+    throw new Error('Escribe el motivo del reconocimiento antes de guardar el diploma.');
   }
 
   if (registroGuardadoPendienteId) {
@@ -2074,6 +2179,12 @@ async function enviarCorreoAcudiente() {
     return;
   }
 
+  if (tieneReconocimientoBuenComportamiento() && !obtenerMotivoReconocimiento()) {
+    alert('Escribe el motivo del reconocimiento antes de enviar el diploma.');
+    document.getElementById('motivoReconocimiento')?.focus();
+    return;
+  }
+
   const datosAcudiente = obtenerDatosAcudiente();
   const correo = document.getElementById('acudienteCorreo')?.value.trim() || '';
 
@@ -2120,6 +2231,8 @@ async function enviarCorreoAcudiente() {
       correo,
       asunto,
       mensaje,
+      diploma: tieneReconocimientoBuenComportamiento(),
+      motivo_reconocimiento: obtenerMotivoReconocimiento(),
     });
 
     guardarBorradorAcudienteLocal();
@@ -2213,6 +2326,43 @@ function volverAInicioDesdeAcudiente() {
 window.editarEstudiante = editarEstudiante;
 window.archivarEstudiante = archivarEstudiante;
 window.restaurarEstudiante = restaurarEstudiante;
+function generarVistaPreviaDiplomaEstimulo() {
+  if (!estudianteSeleccionado) {
+    alert('Selecciona un estudiante antes de generar el diploma.');
+    return;
+  }
+  if (!tieneReconocimientoBuenComportamiento()) {
+    alert('Selecciona “Reconocer y destacar el buen comportamiento” para generar el diploma.');
+    return;
+  }
+
+  const motivo = obtenerMotivoReconocimiento();
+  if (!motivo) {
+    alert('Escribe el motivo del reconocimiento antes de generar el diploma.');
+    document.getElementById('motivoReconocimiento')?.focus();
+    return;
+  }
+
+  const nombre = `${estudianteSeleccionado.nombre || ''} ${estudianteSeleccionado.apellido || ''}`.trim();
+  const fecha = new Intl.DateTimeFormat('es-CO', { dateStyle: 'long' }).format(new Date());
+  const markup = `
+    <article style="box-sizing:border-box;max-width:900px;min-height:560px;margin:24px auto;padding:56px 64px;border:12px double #c79a36;border-radius:18px;background:linear-gradient(135deg,#fffdf6,#ffffff);color:#173b68;text-align:center;display:flex;flex-direction:column;justify-content:center;">
+      <p style="margin:0;color:#b18428;font-size:18px;font-weight:800;letter-spacing:5px;text-transform:uppercase;">Reconocimiento especial</p>
+      <h1 style="margin:28px 0 12px;font-family:Georgia,serif;font-size:48px;color:#173b68;">Diploma al buen comportamiento</h1>
+      <p style="margin:14px 0;color:#475569;font-size:20px;">Se otorga a</p>
+      <h2 style="margin:4px 0 20px;padding-bottom:12px;border-bottom:2px solid #c79a36;font-family:Georgia,serif;font-size:38px;color:#173b68;">${escapeHtml(nombre)}</h2>
+      <p style="margin:10px 0;color:#334155;font-size:19px;">Por demostrar un comportamiento ejemplar y contribuir positivamente a su comunidad.</p>
+      <p style="margin:18px auto;max-width:680px;color:#475569;font-size:18px;"><strong>Motivo:</strong> ${escapeHtml(motivo)}</p>
+      <p style="margin:28px 0 0;color:#64748b;font-size:16px;">${escapeHtml(fecha)}</p>
+      <p style="margin:44px 0 0;color:#173b68;font-size:16px;">Docente responsable</p>
+    </article>`;
+  const abierto = abrirImpresionRespaldo(markup, { title: `Diploma de ${nombre}` });
+  if (!abierto) {
+    alert('No se pudo abrir la vista previa del diploma. Permite las ventanas emergentes e inténtalo de nuevo.');
+  }
+}
+
+window.generarVistaPreviaDiplomaEstimulo = generarVistaPreviaDiplomaEstimulo;
 window.generarReporteDisciplinarioPdf = generarReporteDisciplinarioPdf;
 window.generarReporteEstimulosPdf = generarReporteEstimulosPdf;
 

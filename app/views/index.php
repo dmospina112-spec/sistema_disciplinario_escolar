@@ -25,7 +25,7 @@ header_remove('ETag');
 header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
 
 $projectRoot = dirname(__DIR__, 2);
-$stylesVersion = (string) filemtime($projectRoot . '/frontend/css/styles.css');
+$stylesVersion = (string) md5_file($projectRoot . '/frontend/css/styles.css');
 $scriptJsVersion = (string) filemtime($projectRoot . '/frontend/js/script.js');
 ?>
 <!DOCTYPE html>
@@ -47,7 +47,7 @@ $scriptJsVersion = (string) filemtime($projectRoot . '/frontend/js/script.js');
   <main class="login-shell container-xxl">
     <section class="login-hero">
       <div class="hero-brand">
-        <img src="frontend/img/Logo-comportate.jpg" alt="Logo Comportate" class="hero-logo">
+        <img src="frontend/img/Logo-comportate-transparent.png" alt="Logo Comportate" class="hero-logo">
         <div class="hero-brand-copy">
           <span class="hero-kicker">Plataforma docente</span>
         </div>
@@ -211,11 +211,14 @@ $scriptJsVersion = (string) filemtime($projectRoot . '/frontend/js/script.js');
   <footer class="site-footer">
     <div class="site-footer-shell">
       <div class="site-footer-brand">
-        <img src="frontend/img/Logo-comportate.jpg" alt="Logo Comportate" class="site-footer-logo">
+        <img src="frontend/img/Logo-comportate-white-clean.png" alt="Logo Comportate" class="site-footer-logo">
         <div>
           <strong>Tú comportaminto construye un entorno positivo</strong>
           <p>Plataforma de seguimiento disciplinario.</p>
         </div>
+      </div>
+      <div class="site-footer-meta">
+        <a class="site-footer-policy-link" href="politica_privacidad.php">Política de privacidad</a>
       </div>
     </div>
   </footer>

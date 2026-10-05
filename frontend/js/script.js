@@ -490,6 +490,11 @@ function generarReporte() {
 }
 
 function generarReporteEstimulos() {
+  if (typeof window.generarVistaPreviaDiplomaEstimulo === 'function') {
+    window.generarVistaPreviaDiplomaEstimulo();
+    return;
+  }
+
   const reporte = document.getElementById('reporteEstimulos');
   if (typeof window.generarReporteEstimulosPdf === 'function') {
     window.generarReporteEstimulosPdf();
