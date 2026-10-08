@@ -137,17 +137,39 @@ $scriptJsVersion = (string) filemtime($projectRoot . '/frontend/js/script.js');
           </div>
           <div class="mb-3">
             <label for="registroContrasena" class="form-label">Contraseña</label>
-            <input type="password" class="form-control" id="registroContrasena" placeholder="********" autocomplete="new-password" minlength="8" required>
+            <input type="password" class="form-control" id="registroContrasena" placeholder="********" autocomplete="new-password" minlength="8" required aria-describedby="requisitosContrasena">
           </div>
           <div class="mb-3">
             <label for="registroContrasenaConfirmacion" class="form-label">Confirmar contraseña</label>
             <input type="password" class="form-control" id="registroContrasenaConfirmacion" placeholder="********" autocomplete="new-password" minlength="8" required>
+          </div>
+          <div class="auth-password-rules" id="requisitosContrasena" aria-live="polite">
+            <span>La contrase&ntilde;a debe tener:</span>
+            <ul>
+              <li data-password-rule="length">M&iacute;nimo 8 caracteres</li>
+              <li data-password-rule="uppercase">Al menos una may&uacute;scula</li>
+              <li data-password-rule="lowercase">Al menos una min&uacute;scula</li>
+              <li data-password-rule="number">Al menos un n&uacute;mero</li>
+              <li data-password-rule="special">Al menos un car&aacute;cter especial (@#$...)</li>
+            </ul>
           </div>
           <div class="mb-3">
             <label class="form-label" for="registroRoleLabel">Rol</label>
             <input type="text" class="form-control" id="registroRoleLabel" value="Docente" readonly>
             <input type="hidden" id="registroRole" value="docente">
           </div>
+
+          <fieldset class="auth-consents mb-3">
+            <legend>Autorizaciones <span aria-hidden="true">*</span></legend>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="aceptaTerminos" required>
+              <label class="form-check-label" for="aceptaTerminos">Acepto los <a href="terminos_condiciones.php" target="_blank" rel="noopener">T&eacute;rminos y Condiciones</a> de uso y contrataci&oacute;n. Es obligatorio para continuar.</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="aceptaTratamientoDatos" required>
+              <label class="form-check-label" for="aceptaTratamientoDatos">Declaro haber le&iacute;do la <a href="politica_privacidad.php" target="_blank" rel="noopener">pol&iacute;tica de tratamiento de datos</a> y autorizo el tratamiento de mis datos de cuenta para las finalidades all&iacute; descritas. La autorizaci&oacute;n de datos de estudiantes y acudientes debe obtenerse por separado cuando corresponda.</label>
+            </div>
+          </fieldset>
 
           <button type="submit" class="btn btn-success w-100 auth-submit">Crear cuenta</button>
           <button type="button" class="btn btn-link auth-switch auth-switch-back" id="switchToLogin">
@@ -216,9 +238,6 @@ $scriptJsVersion = (string) filemtime($projectRoot . '/frontend/js/script.js');
           <strong>Tú comportaminto construye un entorno positivo</strong>
           <p>Plataforma de seguimiento disciplinario.</p>
         </div>
-      </div>
-      <div class="site-footer-meta">
-        <a class="site-footer-policy-link" href="politica_privacidad.php">Política de privacidad</a>
       </div>
     </div>
   </footer>

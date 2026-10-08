@@ -226,6 +226,21 @@ if (switchToRegisterBtn) {
 }
 
 if (registerForm) {
+  const passwordField = document.getElementById('registroContrasena');
+  passwordField?.addEventListener('input', () => {
+    const password = passwordField.value;
+    const rules = {
+      length: password.length >= 8,
+      uppercase: /[A-Z]/.test(password),
+      lowercase: /[a-z]/.test(password),
+      number: /\d/.test(password),
+      special: /[^A-Za-z0-9]/.test(password),
+    };
+    Object.entries(rules).forEach(([rule, valid]) => {
+      document.querySelector(`[data-password-rule="${rule}"]`)?.classList.toggle('is-valid', valid);
+    });
+  });
+
   registerForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (!mensajeRegistro) {
@@ -241,6 +256,8 @@ if (registerForm) {
     const contrasena = document.getElementById('registroContrasena').value.trim();
     const confirmacion = document.getElementById('registroContrasenaConfirmacion').value.trim();
     const rol = document.getElementById('registroRole').value;
+    const aceptaTerminos = document.getElementById('aceptaTerminos').checked;
+    const aceptaTratamientoDatos = document.getElementById('aceptaTratamientoDatos').checked;
 
     hideRegisterMessage();
 
@@ -272,6 +289,16 @@ if (registerForm) {
       return;
     }
 
+    if (!/[A-Z]/.test(contrasena) || !/[a-z]/.test(contrasena) || !/\d/.test(contrasena) || !/[^A-Za-z0-9]/.test(contrasena)) {
+      showRegisterMessage('La contraseÃ±a debe incluir mayÃºscula, minÃºscula, nÃºmero y carÃ¡cter especial.', 'danger');
+      return;
+    }
+
+    if (!aceptaTerminos || !aceptaTratamientoDatos) {
+      showRegisterMessage('Debes aceptar los TÃ©rminos y Condiciones y la polÃ­tica de tratamiento de datos para continuar.', 'danger');
+      return;
+    }
+
     if (contrasena !== confirmacion) {
       showRegisterMessage('La confirmación de la contraseña no coincide.', 'danger');
       return;
@@ -286,6 +313,8 @@ if (registerForm) {
         pregunta_seguridad: preguntaSeguridad,
         respuesta_seguridad: respuestaSeguridad,
         contrasena,
+        acepta_terminos: aceptaTerminos,
+        acepta_tratamiento_datos: aceptaTratamientoDatos,
         rol,
       });
       registerForm.reset();

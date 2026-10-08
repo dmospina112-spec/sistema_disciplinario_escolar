@@ -2405,10 +2405,17 @@ function crearDocente(mysqli $conn, array $data): void
         ]);
     }
 
-    if (strlen($contrasena) < 8) {
+    if (strlen($contrasena) < 8 || !preg_match('/[A-Z]/', $contrasena) || !preg_match('/[a-z]/', $contrasena) || !preg_match('/[0-9]/', $contrasena) || !preg_match('/[^A-Za-z0-9]/', $contrasena)) {
         jsonResponse(400, [
             'success' => false,
             'error' => 'La contraseña debe tener al menos 8 caracteres.',
+        ]);
+    }
+
+    if (empty($data['acepta_terminos']) || empty($data['acepta_tratamiento_datos'])) {
+        jsonResponse(400, [
+            'success' => false,
+            'error' => 'Debes aceptar los TÃ©rminos y Condiciones y la polÃ­tica de tratamiento de datos.',
         ]);
     }
 

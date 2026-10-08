@@ -272,9 +272,6 @@ $heroLogoVersion = $assetVersion($projectRoot . '/frontend/img/Logo-comportate-w
           <p>Panel administrativo para control de usuarios, accesos y operación institucional.</p>
         </div>
       </div>
-      <div class="site-footer-meta">
-        <a class="site-footer-policy-link" href="politica_privacidad.php">Política de privacidad</a>
-      </div>
     </div>
   </footer>
 

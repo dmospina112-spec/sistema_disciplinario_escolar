@@ -400,6 +400,33 @@ body.site-body.login-page::after {
   letter-spacing: 0.01em;
 }
 
+.auth-password-rules {
+  margin-top: 0.55rem;
+  color: #526277;
+  font-size: 0.84rem;
+}
+
+.auth-password-rules ul {
+  list-style: none;
+  padding: 0;
+  margin: 0.25rem 0 0;
+}
+
+.auth-password-rules li::before {
+  content: '●';
+  margin-right: 0.45rem;
+  color: #8794a5;
+}
+
+.auth-password-rules li.is-valid::before { color: #13856f; }
+.auth-consents { border: 0; padding: 0; }
+.auth-consents legend { float: none; width: auto; margin-bottom: 0.5rem; font-size: 0.95rem; font-weight: 700; }
+.auth-consents legend span { color: #dc2626; }
+.auth-consents .form-check { margin-bottom: 0.65rem; }
+.auth-consents .form-check-input { margin-top: 0.3rem; }
+.auth-consents .form-check-label { color: #334155; font-size: 0.87rem; line-height: 1.5; }
+.auth-consents a { color: #087f8c; font-weight: 700; }
+
 .login-page .btn-primary.auth-submit {
   background: linear-gradient(135deg, #1d4f91 0%, #2a6eea 100%);
   box-shadow: 0 16px 30px rgba(37, 99, 235, 0.26);

@@ -72,9 +72,6 @@ $scriptJsVersion = (string) filemtime($projectRoot . '/frontend/js/script.js');
           <p>Panel docente para estudiantes, reportes, acudientes e historial disciplinario.</p>
         </div>
       </div>
-      <div class="site-footer-meta">
-        <a class="site-footer-policy-link" href="politica_privacidad.php">Política de privacidad</a>
-      </div>
     </div>
   </footer>
 
