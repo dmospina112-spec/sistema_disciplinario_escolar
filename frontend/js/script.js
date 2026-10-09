@@ -1,102 +1,46 @@
 const loginForm = document.getElementById('loginForm');
-const registerForm = document.getElementById('registerForm');
 const recoverForm = document.getElementById('recoverForm');
-const switchToLoginBtn = document.getElementById('switchToLogin');
-const switchToRegisterBtn = document.getElementById('switchToRegister');
 const switchRecoverToLoginBtn = document.getElementById('switchRecoverToLogin');
 const recordarBtn = document.getElementById('recordarBtn');
-const consultarPreguntaBtn = document.getElementById('consultarPreguntaBtn');
-const mensajeRegistro = document.getElementById('mensajeRegistro');
 const mensajeError = document.getElementById('mensajeError');
 const mensajeRecuperacion = document.getElementById('mensajeRecuperacion');
 const loginSection = document.getElementById('loginSection');
 const isLoginPage = Boolean(loginSection);
-const recoverSecurityQuestionWrap = document.getElementById('recoverSecurityQuestionWrap');
-const recoverSecurityQuestionText = document.getElementById('recoverSecurityQuestionText');
-const recoverSecurityFields = document.getElementById('recoverSecurityFields');
-const btnCambiarContrasena = document.getElementById('btnCambiarContrasena');
-
 const API_ENDPOINT = 'api.php';
 const AUTH_STORAGE_KEY = 'auth_user';
 const DOCENTE_STORAGE_KEY = 'docente';
 const SESSION_FLAG = 'authed';
-const PANEL_PATHS = {
-  administrador: 'panel_admin.php',
-  docente: 'panel_docente.php',
-};
-let recoveryQuestionCode = '';
+const PANEL_PATHS = { administrador: 'panel_admin.php', docente: 'panel_docente.php' };
 
 function toggleLoginMode(mode) {
-  const showLogin = mode === 'login';
-  const showRegister = mode === 'register';
-  const showRecover = mode === 'recover';
-
-  loginForm?.classList.toggle('d-none', !showLogin);
-  registerForm?.classList.toggle('d-none', !showRegister);
-  recoverForm?.classList.toggle('d-none', !showRecover);
-  switchToLoginBtn?.classList.toggle('active', showLogin);
-  switchToRegisterBtn?.classList.toggle('active', showRegister);
-  hideRegisterMessage();
-  hideRecoveryMessage();
+  loginForm?.classList.toggle('d-none', mode !== 'login');
+  recoverForm?.classList.toggle('d-none', mode !== 'recover');
   mensajeError?.classList.add('d-none');
-
-  if (!showRecover) {
-    resetRecoveryForm();
+  if (mensajeRecuperacion) {
+    mensajeRecuperacion.textContent = '';
+    mensajeRecuperacion.classList.add('d-none');
+    mensajeRecuperacion.classList.remove('alert-success', 'alert-warning', 'alert-danger', 'alert-info');
   }
-}
-
-function hideRegisterMessage() {
-  if (!mensajeRegistro) {
-    return;
-  }
-  mensajeRegistro.classList.add('d-none');
-  mensajeRegistro.classList.remove('alert-success', 'alert-warning', 'alert-danger');
-}
-
-function showRegisterMessage(text, variant = 'warning') {
-  if (!mensajeRegistro) {
-    return;
-  }
-  mensajeRegistro.textContent = text;
-  mensajeRegistro.classList.remove('alert-success', 'alert-warning', 'alert-danger', 'd-none');
-  mensajeRegistro.classList.add(`alert-${variant}`);
 }
 
 function showLoginError(message) {
-  if (!mensajeError) {
-    return;
-  }
+  if (!mensajeError) return;
   mensajeError.textContent = message || 'Usuario o contraseña incorrectos.';
   mensajeError.classList.remove('d-none');
 }
 
-function hideRecoveryMessage() {
-  if (!mensajeRecuperacion) {
-    return;
-  }
-
-  mensajeRecuperacion.textContent = '';
-  mensajeRecuperacion.classList.add('d-none');
-  mensajeRecuperacion.classList.remove('alert-success', 'alert-warning', 'alert-danger', 'alert-info');
-}
-
 function showRecoveryMessage(text, variant = 'info') {
-  if (!mensajeRecuperacion) {
-    return;
-  }
-
+  if (!mensajeRecuperacion) return;
   mensajeRecuperacion.textContent = text;
-  mensajeRecuperacion.classList.remove('alert-success', 'alert-warning', 'alert-danger', 'alert-info', 'd-none');
+  mensajeRecuperacion.classList.remove('d-none', 'alert-success', 'alert-warning', 'alert-danger', 'alert-info');
   mensajeRecuperacion.classList.add(`alert-${variant}`);
 }
 
 function persistSession(user) {
-  if (!user) {
-    return;
-  }
-  const serialized = JSON.stringify(user);
-  sessionStorage.setItem(AUTH_STORAGE_KEY, serialized);
-  sessionStorage.setItem(DOCENTE_STORAGE_KEY, serialized);
+  if (!user) return;
+  const value = JSON.stringify(user);
+  sessionStorage.setItem(AUTH_STORAGE_KEY, value);
+  sessionStorage.setItem(DOCENTE_STORAGE_KEY, value);
   sessionStorage.setItem(SESSION_FLAG, '1');
 }
 
@@ -106,362 +50,84 @@ function clearPersistedSession() {
   sessionStorage.removeItem(DOCENTE_STORAGE_KEY);
 }
 
-if (!isLoginPage && window.__panelUser) {
-  persistSession(window.__panelUser);
-}
-
-function getPanelPath(role) {
-  const normalized = (role || 'docente').toLowerCase();
-  return PANEL_PATHS[normalized] || PANEL_PATHS.docente;
-}
+if (!isLoginPage && window.__panelUser) persistSession(window.__panelUser);
+if (isLoginPage) clearPersistedSession();
 
 async function postAction(action, payload) {
+  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
   const response = await fetch(`${API_ENDPOINT}?action=${encodeURIComponent(action)}`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
     body: JSON.stringify(payload),
   });
-
   const raw = await response.text();
-  let data = null;
-
-  if (raw.trim() !== '') {
-    try {
-      data = JSON.parse(raw);
-    } catch (_error) {
-      data = null;
-    }
-  }
-
-  if (!data || typeof data !== 'object') {
-    const fallbackMessage = raw.trim() !== ''
-      ? raw.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
-      : `Error HTTP ${response.status}`;
-
-    throw new Error(fallbackMessage || 'La API devolvió una respuesta inválida.');
-  }
-
-  if (!response.ok || data.success === false) {
-    const errorMessage = data.error || data.message || `Error HTTP ${response.status}`;
-    throw new Error(errorMessage);
-  }
-
+  let data;
+  try { data = JSON.parse(raw); } catch (_error) { throw new Error('La API devolvió una respuesta inválida.'); }
+  if (!response.ok || data.success === false) throw new Error(data.error || data.message || `Error HTTP ${response.status}`);
   return data;
 }
 
-function normalizeRegisterUsername(value) {
-  return value.trim().toLowerCase().replace(/\s+/g, '');
-}
-
-function getEmailPattern() {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-}
-
-function getUsernamePattern() {
-  return /^[a-z0-9._-]{4,30}$/;
-}
-
-function clearRecoveryVerificationState() {
-  recoveryQuestionCode = '';
-
-  if (recoverSecurityQuestionText) {
-    recoverSecurityQuestionText.textContent = '';
-  }
-
-  recoverSecurityQuestionWrap?.classList.add('d-none');
-  recoverSecurityFields?.classList.add('d-none');
-  btnCambiarContrasena?.classList.add('d-none');
-
-  ['recuperarRespuestaSeguridad', 'recuperarContrasenaNueva', 'recuperarContrasenaConfirmacion'].forEach((id) => {
-    const input = document.getElementById(id);
-    if (input) {
-      input.value = '';
-    }
-  });
-}
-
-function resetRecoveryForm() {
-  recoverForm?.reset();
-  clearRecoveryVerificationState();
-  hideRecoveryMessage();
-}
-
-if (isLoginPage) {
-  clearPersistedSession();
+function getPanelPath(role) {
+  return PANEL_PATHS[(role || 'docente').toLowerCase()] || PANEL_PATHS.docente;
 }
 
 if (loginForm) {
   loginForm.addEventListener('submit', async (event) => {
     event.preventDefault();
-
     const usuario = document.getElementById('usuario').value.trim();
-    const contrasena = document.getElementById('contrasena').value.trim();
-
+    const contrasena = document.getElementById('contrasena').value;
     mensajeError?.classList.add('d-none');
-
-    if (!usuario || !contrasena) {
-      showLoginError('Completa usuario y contraseña.');
-      return;
-    }
-
+    if (!usuario || !contrasena) return showLoginError('Completa usuario y contraseña.');
     try {
       const result = await postAction('login', { usuario, contrasena });
       persistSession(result.data);
-      const target = getPanelPath(result.data?.rol);
-      window.location.href = target;
-    } catch (error) {
-      showLoginError(error.message);
-    }
+      window.location.href = getPanelPath(result.data?.rol);
+    } catch (error) { showLoginError(error.message); }
   });
 }
 
-if (switchToLoginBtn) {
-  switchToLoginBtn.addEventListener('click', () => toggleLoginMode('login'));
-}
+recordarBtn?.addEventListener('click', () => {
+  toggleLoginMode('recover');
+  document.getElementById('recuperarCorreo')?.focus();
+});
+switchRecoverToLoginBtn?.addEventListener('click', () => toggleLoginMode('login'));
 
-if (switchToRegisterBtn) {
-  switchToRegisterBtn.addEventListener('click', () => toggleLoginMode('register'));
-}
-
-if (registerForm) {
-  const passwordField = document.getElementById('registroContrasena');
-  passwordField?.addEventListener('input', () => {
-    const password = passwordField.value;
-    const rules = {
-      length: password.length >= 8,
-      uppercase: /[A-Z]/.test(password),
-      lowercase: /[a-z]/.test(password),
-      number: /\d/.test(password),
-      special: /[^A-Za-z0-9]/.test(password),
-    };
-    Object.entries(rules).forEach(([rule, valid]) => {
-      document.querySelector(`[data-password-rule="${rule}"]`)?.classList.toggle('is-valid', valid);
-    });
-  });
-
-  registerForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    if (!mensajeRegistro) {
-      return;
-    }
-
-    const nombre = document.getElementById('registroNombre').value.trim();
-    const apellido = document.getElementById('registroApellido').value.trim();
-    const usuario = document.getElementById('registroUsuario').value.trim();
-    const correo = document.getElementById('registroCorreo').value.trim();
-    const preguntaSeguridad = document.getElementById('registroPreguntaSeguridad').value;
-    const respuestaSeguridad = document.getElementById('registroRespuestaSeguridad').value.trim();
-    const contrasena = document.getElementById('registroContrasena').value.trim();
-    const confirmacion = document.getElementById('registroContrasenaConfirmacion').value.trim();
-    const rol = document.getElementById('registroRole').value;
-    const aceptaTerminos = document.getElementById('aceptaTerminos').checked;
-    const aceptaTratamientoDatos = document.getElementById('aceptaTratamientoDatos').checked;
-
-    hideRegisterMessage();
-
-    if (!nombre || !apellido || !usuario || !correo || !preguntaSeguridad || !respuestaSeguridad || !contrasena) {
-      showRegisterMessage('Completa todos los campos para crear la cuenta.', 'danger');
-      return;
-    }
-
-    const usuarioNormalizado = normalizeRegisterUsername(usuario);
-    const usuarioPattern = getUsernamePattern();
-    if (!usuarioPattern.test(usuarioNormalizado)) {
-      showRegisterMessage('El usuario debe tener entre 4 y 30 caracteres y solo puede usar letras, números, punto, guion y guion bajo.', 'danger');
-      return;
-    }
-
-    const emailPattern = getEmailPattern();
-    if (!emailPattern.test(correo)) {
-      showRegisterMessage('Ingresa un correo electrónico válido.', 'danger');
-      return;
-    }
-
-    if (respuestaSeguridad.length < 3) {
-      showRegisterMessage('La respuesta de seguridad debe tener al menos 3 caracteres.', 'danger');
-      return;
-    }
-
-    if (contrasena.length < 8) {
-      showRegisterMessage('La contraseña debe tener al menos 8 caracteres.', 'danger');
-      return;
-    }
-
-    if (!/[A-Z]/.test(contrasena) || !/[a-z]/.test(contrasena) || !/\d/.test(contrasena) || !/[^A-Za-z0-9]/.test(contrasena)) {
-      showRegisterMessage('La clave debe incluir mayuscula, minuscula, numero y caracter especial.', 'danger');
-      return;
-    }
-
-    if (!aceptaTerminos || !aceptaTratamientoDatos) {
-      showRegisterMessage('Debes aceptar los Terminos y Condiciones y la politica de tratamiento de datos para continuar.', 'danger');
-      return;
-    }
-
-    if (contrasena !== confirmacion) {
-      showRegisterMessage('La confirmación de la contraseña no coincide.', 'danger');
-      return;
-    }
-
-    try {
-      const response = await postAction('crearDocente', {
-        nombre,
-        apellido,
-        usuario: usuarioNormalizado,
-        correo,
-        pregunta_seguridad: preguntaSeguridad,
-        respuesta_seguridad: respuestaSeguridad,
-        contrasena,
-        acepta_terminos: aceptaTerminos,
-        acepta_tratamiento_datos: aceptaTratamientoDatos,
-        rol,
-      });
-      registerForm.reset();
-      document.getElementById('usuario').value = response.data?.usuario || usuarioNormalizado;
-      document.getElementById('contrasena').value = '';
-      showRegisterMessage(response.message || 'Cuenta creada correctamente.', 'success');
-      setTimeout(() => {
-        toggleLoginMode('login');
-        document.getElementById('contrasena').focus();
-      }, 1200);
-    } catch (error) {
-      showRegisterMessage(error.message, 'danger');
-    }
-  });
-}
-
-if (recordarBtn) {
-  recordarBtn.addEventListener('click', () => {
-    resetRecoveryForm();
-    toggleLoginMode('recover');
-    document.getElementById('recuperarUsuario')?.focus();
-  });
-}
-
-if (switchRecoverToLoginBtn) {
-  switchRecoverToLoginBtn.addEventListener('click', () => {
-    toggleLoginMode('login');
-  });
-}
-
-['recuperarUsuario', 'recuperarCorreo'].forEach((id) => {
-  const input = document.getElementById(id);
-  input?.addEventListener('input', () => {
-    if (recoveryQuestionCode) {
-      clearRecoveryVerificationState();
-      hideRecoveryMessage();
-    }
-  });
+recoverForm?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const correo = (document.getElementById('recuperarCorreo')?.value || '').trim().toLowerCase();
+  if (!document.getElementById('recuperarCorreo').checkValidity()) return showRecoveryMessage('Ingresa un correo electrónico válido.', 'warning');
+  const button = document.getElementById('solicitarResetBtn');
+  button.disabled = true;
+  try {
+    const result = await postAction('solicitarRestablecimiento', { correo });
+    showRecoveryMessage(result.message, 'info');
+  } catch (error) { showRecoveryMessage(error.message, 'danger'); }
+  finally { button.disabled = false; }
 });
 
-if (consultarPreguntaBtn) {
-  consultarPreguntaBtn.addEventListener('click', async () => {
-    const usuario = normalizeRegisterUsername(document.getElementById('recuperarUsuario')?.value || '');
-    const correo = (document.getElementById('recuperarCorreo')?.value || '').trim().toLowerCase();
-
-    hideRecoveryMessage();
-    clearRecoveryVerificationState();
-
-    if (!usuario || !correo) {
-      showRecoveryMessage('Primero escribe tu usuario y correo registrado.', 'warning');
-      return;
-    }
-
-    if (!getUsernamePattern().test(usuario)) {
-      showRecoveryMessage('El usuario debe tener entre 4 y 30 caracteres válidos.', 'danger');
-      return;
-    }
-
-    if (!getEmailPattern().test(correo)) {
-      showRecoveryMessage('Ingresa un correo electrónico válido.', 'danger');
-      return;
-    }
-
-    const defaultText = consultarPreguntaBtn.textContent;
-    consultarPreguntaBtn.disabled = true;
-    consultarPreguntaBtn.textContent = 'Consultando...';
-
-    try {
-      const result = await postAction('consultarPreguntaSeguridad', { usuario, correo });
-      recoveryQuestionCode = result.data?.pregunta || '';
-
-      if (recoverSecurityQuestionText) {
-        recoverSecurityQuestionText.textContent = result.data?.pregunta_label || 'Pregunta configurada';
-      }
-
-      recoverSecurityQuestionWrap?.classList.remove('d-none');
-      recoverSecurityFields?.classList.remove('d-none');
-      btnCambiarContrasena?.classList.remove('d-none');
-      showRecoveryMessage(result.message || 'Responde tu pregunta y define la nueva contraseña.', 'info');
-      document.getElementById('recuperarRespuestaSeguridad')?.focus();
-    } catch (error) {
-      showRecoveryMessage(error.message, 'danger');
-    } finally {
-      consultarPreguntaBtn.disabled = false;
-      consultarPreguntaBtn.textContent = defaultText;
-    }
-  });
-}
-
-if (recoverForm) {
-  recoverForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
-
-    const usuario = normalizeRegisterUsername(document.getElementById('recuperarUsuario')?.value || '');
-    const correo = (document.getElementById('recuperarCorreo')?.value || '').trim().toLowerCase();
-    const respuestaSeguridad = document.getElementById('recuperarRespuestaSeguridad')?.value.trim() || '';
-    const contrasenaNueva = document.getElementById('recuperarContrasenaNueva')?.value.trim() || '';
-    const confirmacion = document.getElementById('recuperarContrasenaConfirmacion')?.value.trim() || '';
-
-    hideRecoveryMessage();
-
-    if (!recoveryQuestionCode) {
-      showRecoveryMessage('Consulta primero tu pregunta de seguridad.', 'warning');
-      return;
-    }
-
-    if (!respuestaSeguridad || !contrasenaNueva || !confirmacion) {
-      showRecoveryMessage('Completa la respuesta y la nueva contraseña.', 'danger');
-      return;
-    }
-
-    if (respuestaSeguridad.length < 3) {
-      showRecoveryMessage('La respuesta de seguridad debe tener al menos 3 caracteres.', 'danger');
-      return;
-    }
-
-    if (contrasenaNueva.length < 8) {
-      showRecoveryMessage('La nueva contraseña debe tener al menos 8 caracteres.', 'danger');
-      return;
-    }
-
-    if (contrasenaNueva !== confirmacion) {
-      showRecoveryMessage('La confirmación de la nueva contraseña no coincide.', 'danger');
-      return;
-    }
-
-    try {
-      const result = await postAction('recuperarContrasena', {
-        usuario,
-        correo,
-        respuesta_seguridad: respuestaSeguridad,
-        contrasena_nueva: contrasenaNueva,
-      });
-
-      showRecoveryMessage(result.message || 'Contraseña actualizada correctamente.', 'success');
-
-      setTimeout(() => {
-        toggleLoginMode('login');
-        document.getElementById('usuario').value = usuario;
-        document.getElementById('contrasena').value = '';
-        document.getElementById('contrasena')?.focus();
-      }, 1200);
-    } catch (error) {
-      showRecoveryMessage(error.message, 'danger');
-    }
-  });
-}
+document.getElementById('changePasswordForm')?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const current = document.getElementById('currentPassword').value;
+  const password = document.getElementById('newPassword').value;
+  const confirmation = document.getElementById('confirmNewPassword').value;
+  const message = document.getElementById('changePasswordMessage');
+  message.className = 'alert mt-3 mb-0';
+  message.textContent = '';
+  if (password !== confirmation) {
+    message.classList.add('alert-warning');
+    message.textContent = 'La confirmación de la contraseña no coincide.';
+    return;
+  }
+  try {
+    const result = await postAction('cambiarMiContrasena', { contrasena_actual: current, contrasena_nueva: password, confirmacion: confirmation });
+    message.classList.add('alert-success');
+    message.textContent = result.message;
+    event.currentTarget.reset();
+  } catch (error) {
+    message.classList.add('alert-danger');
+    message.textContent = error.message;
+  }
+});
 
 const ACTIONS = [
   { id: 'btnGenerarReporte', handler: generarReporte },
@@ -568,14 +234,13 @@ function cerrarSesion() {
       clearPersistedSession();
 
       if (!loginSection) {
-        window.location.href = 'index.php';
+        window.location.href = 'acceso.php';
         return;
       }
 
       const forms = document.querySelectorAll('form');
       forms.forEach((form) => form.reset());
       mensajeError?.classList.add('d-none');
-      hideRegisterMessage();
       hideRecoveryMessage();
       clearRecoveryVerificationState();
       toggleLoginMode('login');

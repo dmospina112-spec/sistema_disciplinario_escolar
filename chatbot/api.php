@@ -4,13 +4,20 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/bootstrap_db.php';
+require_once dirname(__DIR__) . '/app/backend/session.php';
 
 ini_set('display_errors', '0');
 ini_set('html_errors', '0');
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+try {
+    ensureAppSessionStarted();
+} catch (Throwable $exception) {
+    header('Content-Type: application/json; charset=utf-8');
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'No se pudo iniciar la sesión segura.']);
+    exit;
 }
+require_once dirname(__DIR__) . '/app/backend/password_reset.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
@@ -136,6 +143,9 @@ function getMailTransportConfig(): array
     $port = (int) (getenv('SMTP_PORT') ?: 0);
     $username = normalizeText(getenv('SMTP_USERNAME') ?: '');
     $password = (string) (getenv('SMTP_PASSWORD') ?: '');
+    if (strtolower($host) === 'smtp.gmail.com') {
+        $password = preg_replace('/\s+/', '', trim($password)) ?? trim($password);
+    }
     $encryption = strtolower(normalizeText(getenv('SMTP_ENCRYPTION') ?: ''));
     $timeout = (int) (getenv('SMTP_TIMEOUT') ?: 15);
     $heloDomain = normalizeText(getenv('SMTP_HELO_DOMAIN') ?: '');
@@ -591,6 +601,8 @@ function storeAuthenticatedUserSession(array $user, bool $regenerateId = false):
     }
 
     $_SESSION['auth_user'] = $user;
+    $_SESSION['auth_last_activity'] = time();
+    unset($_SESSION['auth_expired']);
 }
 
 function getAuthenticatedUserSession(): ?array
@@ -627,10 +639,13 @@ function clearAuthenticatedUserSession(): void
 function requireAdminAccess(): array
 {
     $user = getAuthenticatedUserSession();
-    if (!$user || ($user['rol'] ?? '') !== 'administrador') {
+    $role = strtolower(trim((string) ($user['rol'] ?? '')));
+    if (!$user || $role !== 'administrador') {
         jsonResponse(403, [
             'success' => false,
-            'error' => 'Debes iniciar sesión como administrador para realizar esta acción.',
+            'error' => !empty($_SESSION['auth_expired'])
+                ? 'La sesión de administración venció por inactividad. Inicia sesión nuevamente; el docente no se guardó.'
+                : 'Debes iniciar sesión como administrador para realizar esta acción.',
         ]);
     }
 
@@ -645,6 +660,7 @@ function buildDocenteAdminPayload(array $row, int $currentUserId = 0): array
         'nombre' => (string) ($row['nombre'] ?? ''),
         'apellido' => (string) ($row['apellido'] ?? ''),
         'correo' => (string) ($row['correo'] ?? ''),
+        'telefono' => (string) ($row['telefono'] ?? ''),
         'rol' => resolveDocenteRole($row),
         'activo' => (int) ($row['activo'] ?? 1) === 1,
         'fecha_registro' => (string) ($row['fecha_registro'] ?? ''),
@@ -654,8 +670,9 @@ function buildDocenteAdminPayload(array $row, int $currentUserId = 0): array
 
 function findDocenteById(mysqli $conn, int $id): ?array
 {
+    $phoneField = docenteHasPhoneColumn($conn) ? 'telefono' : 'NULL AS telefono';
     $stmt = $conn->prepare(
-        'SELECT id, usuario, nombre, apellido, correo, rol, activo, fecha_registro
+        'SELECT id, usuario, nombre, apellido, correo, ' . $phoneField . ', rol, activo, fecha_registro
          FROM docentes
          WHERE id = ?
          LIMIT 1'
@@ -672,6 +689,32 @@ function findDocenteById(mysqli $conn, int $id): ?array
     $stmt->close();
 
     return $row ?: null;
+}
+
+function verifyCreatedDocente(mysqli $conn, int $id, array $input): ?array
+{
+    $stmt = $conn->prepare('SELECT usuario, correo, telefono, password, rol, activo FROM docentes WHERE id = ? LIMIT 1');
+    if (!$stmt) return null;
+
+    $stmt->bind_param('i', $id);
+    if (!$stmt->execute()) {
+        $stmt->close();
+        return null;
+    }
+
+    $row = $stmt->get_result()->fetch_assoc() ?: null;
+    $stmt->close();
+    if (!$row
+        || normalizeUsername($row['usuario'] ?? '') !== $input['usuario']
+        || normalizeEmailAddress($row['correo'] ?? '') !== $input['correo']
+        || trim((string) ($row['telefono'] ?? '')) !== $input['telefono']
+        || normalizeRoleValue($row['rol'] ?? '', true) !== $input['rol']
+        || (int) ($row['activo'] ?? 0) !== (int) $input['activo']
+        || !password_verify($input['contrasena'], (string) ($row['password'] ?? ''))) {
+        return null;
+    }
+
+    return findDocenteById($conn, $id);
 }
 
 function findDocenteByRecoveryIdentity(mysqli $conn, string $usuario, string $correo): ?array
@@ -730,15 +773,17 @@ function validateDocenteInput(mysqli $conn, array $data, bool $allowAdminRole, b
     $nombre = normalizeText($data['nombre'] ?? '');
     $apellido = normalizeText($data['apellido'] ?? '');
     $usuario = normalizeUsername($data['usuario'] ?? '');
-    $correo = strtolower(normalizeText($data['correo'] ?? ''));
+    $correo = strtolower(normalizeText($data['correo'] ?? $data['usuario'] ?? ''));
+    $usuario = $correo;
     $contrasena = (string) ($data['contrasena'] ?? '');
+    $telefono = trim((string) ($data['telefono'] ?? ''));
     $rolSolicitado = normalizeRoleValue($data['rol'] ?? 'docente', $allowAdminRole);
     $activo = filter_var($data['activo'] ?? true, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
 
-    if ($nombre === '' || $apellido === '' || $usuario === '' || $correo === '') {
+    if ($nombre === '' || $apellido === '' || $usuario === '' || $correo === '' || ($passwordRequired && $telefono === '')) {
         jsonResponse(400, [
             'success' => false,
-            'error' => 'Nombre, apellido, usuario y correo son obligatorios.',
+            'error' => 'Nombre, apellido, teléfono, correo y contraseña son obligatorios al crear.',
         ]);
     }
 
@@ -749,10 +794,10 @@ function validateDocenteInput(mysqli $conn, array $data, bool $allowAdminRole, b
         ]);
     }
 
-    if (!preg_match('/^[a-z0-9._-]{4,30}$/', $usuario)) {
+    if (!filter_var($usuario, FILTER_VALIDATE_EMAIL)) {
         jsonResponse(400, [
             'success' => false,
-            'error' => 'El usuario debe tener entre 4 y 30 caracteres y solo puede usar letras, números, punto, guion y guion bajo.',
+            'error' => 'El usuario debe ser un correo electrónico válido.',
         ]);
     }
 
@@ -763,6 +808,14 @@ function validateDocenteInput(mysqli $conn, array $data, bool $allowAdminRole, b
         ]);
     }
 
+    if (mb_strlen($correo, 'UTF-8') > 254) {
+        jsonResponse(400, ['success' => false, 'error' => 'El correo electrónico excede la longitud permitida.']);
+    }
+
+    if ($telefono !== '' && (!preg_match('/^[0-9+().\-\s]{7,30}$/', $telefono) || preg_match_all('/[0-9]/', $telefono) < 7)) {
+        jsonResponse(400, ['success' => false, 'error' => 'Ingresa un teléfono válido (7 a 30 caracteres).']);
+    }
+
     if ($passwordRequired && $contrasena === '') {
         jsonResponse(400, [
             'success' => false,
@@ -770,12 +823,7 @@ function validateDocenteInput(mysqli $conn, array $data, bool $allowAdminRole, b
         ]);
     }
 
-    if ($contrasena !== '' && strlen($contrasena) < 8) {
-        jsonResponse(400, [
-            'success' => false,
-            'error' => 'La contraseña debe tener al menos 8 caracteres.',
-        ]);
-    }
+    if ($passwordRequired || $contrasena !== '') validateNewPassword($contrasena);
 
     if ($activo === null) {
         $activo = true;
@@ -798,7 +846,7 @@ function validateDocenteInput(mysqli $conn, array $data, bool $allowAdminRole, b
     if ($existingUser) {
         jsonResponse(409, [
             'success' => false,
-            'error' => 'El usuario ya existe.',
+            'error' => 'El correo electrónico ya está registrado; existe una cuenta asociada a esa dirección.',
         ]);
     }
 
@@ -2318,7 +2366,7 @@ function loginDocente(mysqli $conn, array $data): void
         ]);
     }
 
-    $stmt = $conn->prepare('SELECT * FROM docentes WHERE usuario = ? LIMIT 1');
+    $stmt = $conn->prepare('SELECT * FROM docentes WHERE usuario = ? OR LOWER(correo) = ? LIMIT 1');
 
     if (!$stmt) {
         jsonResponse(500, [
@@ -2327,7 +2375,7 @@ function loginDocente(mysqli $conn, array $data): void
         ]);
     }
 
-    $stmt->bind_param('s', $usuario);
+    $stmt->bind_param('ss', $usuario, $usuario);
     $stmt->execute();
     $result = $stmt->get_result();
     $row = $result ? $result->fetch_assoc() : null;
@@ -2348,7 +2396,7 @@ function loginDocente(mysqli $conn, array $data): void
     }
 
     $storedPassword = (string) ($row['password'] ?? $row['contrasena'] ?? '');
-    $isValid = $storedPassword !== '' && (password_verify($contrasena, $storedPassword) || hash_equals($storedPassword, $contrasena));
+    $isValid = $storedPassword !== '' && password_verify($contrasena, $storedPassword);
 
     if (!$isValid) {
         jsonResponse(401, [
@@ -2367,185 +2415,11 @@ function loginDocente(mysqli $conn, array $data): void
     ]);
 }
 
-function crearDocente(mysqli $conn, array $data): void
-{
-    $nombre = normalizeText($data['nombre'] ?? '');
-    $apellido = normalizeText($data['apellido'] ?? '');
-    $usuario = normalizeUsername($data['usuario'] ?? '');
-    $correo = strtolower(normalizeText($data['correo'] ?? ''));
-    $contrasena = (string) ($data['contrasena'] ?? '');
-    $rolSolicitado = strtolower(trim((string) ($data['rol'] ?? 'docente')));
-    $securityInput = validateSecurityQuestionInput($data, true);
-
-    if ($nombre === '' || $apellido === '' || $usuario === '' || $correo === '' || $contrasena === '') {
-        jsonResponse(400, [
-            'success' => false,
-            'error' => 'Todos los campos son obligatorios.',
-        ]);
-    }
-
-    if (mb_strlen($nombre, 'UTF-8') < 2 || mb_strlen($apellido, 'UTF-8') < 2) {
-        jsonResponse(400, [
-            'success' => false,
-            'error' => 'Nombre y apellido deben tener al menos 2 caracteres.',
-        ]);
-    }
-
-    if (!preg_match('/^[a-z0-9._-]{4,30}$/', $usuario)) {
-        jsonResponse(400, [
-            'success' => false,
-            'error' => 'El usuario debe tener entre 4 y 30 caracteres y solo puede usar letras, números, punto, guion y guion bajo.',
-        ]);
-    }
-
-    if (!filter_var($correo, FILTER_VALIDATE_EMAIL)) {
-        jsonResponse(400, [
-            'success' => false,
-            'error' => 'Ingresa un correo electrónico válido.',
-        ]);
-    }
-
-    if (strlen($contrasena) < 8 || !preg_match('/[A-Z]/', $contrasena) || !preg_match('/[a-z]/', $contrasena) || !preg_match('/[0-9]/', $contrasena) || !preg_match('/[^A-Za-z0-9]/', $contrasena)) {
-        jsonResponse(400, [
-            'success' => false,
-            'error' => 'La contraseña debe tener al menos 8 caracteres.',
-        ]);
-    }
-
-    if (empty($data['acepta_terminos']) || empty($data['acepta_tratamiento_datos'])) {
-        jsonResponse(400, [
-            'success' => false,
-            'error' => 'Debes aceptar los TÃ©rminos y Condiciones y la polÃ­tica de tratamiento de datos.',
-        ]);
-    }
-
-    if ($rolSolicitado !== 'docente') {
-        jsonResponse(403, [
-            'success' => false,
-            'error' => 'El registro público solo permite crear cuentas de docente.',
-        ]);
-    }
-
-    $stmt = $conn->prepare('SELECT id FROM docentes WHERE usuario = ? LIMIT 1');
-    if (!$stmt) {
-        jsonResponse(500, [
-            'success' => false,
-            'error' => 'No se pudo validar el usuario.',
-        ]);
-    }
-
-    $stmt->bind_param('s', $usuario);
-    $stmt->execute();
-    $exists = $stmt->get_result();
-    $row = $exists ? $exists->fetch_assoc() : null;
-    $stmt->close();
-
-    if ($row) {
-        jsonResponse(409, [
-            'success' => false,
-            'error' => 'El usuario ya existe.',
-        ]);
-    }
-
-    $stmt = $conn->prepare('SELECT id FROM docentes WHERE correo = ? LIMIT 1');
-    if ($stmt) {
-        $stmt->bind_param('s', $correo);
-        $stmt->execute();
-        $resultCorreo = $stmt->get_result();
-        $correoExistente = $resultCorreo ? $resultCorreo->fetch_assoc() : null;
-        $stmt->close();
-        if ($correoExistente) {
-            jsonResponse(409, [
-                'success' => false,
-                'error' => 'El correo electrónico ya está registrado.',
-            ]);
-        }
-    }
-
-    $hashedPassword = password_hash($contrasena, PASSWORD_DEFAULT);
-    if ($hashedPassword === false) {
-        jsonResponse(500, [
-            'success' => false,
-            'error' => 'No se pudo procesar la contraseña.',
-        ]);
-    }
-
-    $hashedSecurityAnswer = password_hash($securityInput['respuesta_seguridad'], PASSWORD_DEFAULT);
-    if ($hashedSecurityAnswer === false) {
-        jsonResponse(500, [
-            'success' => false,
-            'error' => 'No se pudo procesar la respuesta de seguridad.',
-        ]);
-    }
-
-    $insert = $conn->prepare(
-        'INSERT INTO docentes (
-            usuario,
-            password,
-            nombre,
-            apellido,
-            correo,
-            pregunta_seguridad,
-            respuesta_seguridad_hash,
-            rol,
-            activo
-        )
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)'
-    );
-
-    if (!$insert) {
-        jsonResponse(500, [
-            'success' => false,
-            'error' => 'No se pudo crear la cuenta.',
-        ]);
-    }
-
-    $rol = 'docente';
-    $insert->bind_param(
-        'ssssssss',
-        $usuario,
-        $hashedPassword,
-        $nombre,
-        $apellido,
-        $correo,
-        $securityInput['pregunta_seguridad'],
-        $hashedSecurityAnswer,
-        $rol
-    );
-
-    if (!$insert->execute()) {
-        $code = $insert->errno;
-        $insert->close();
-
-        if ($code === 1062) {
-            jsonResponse(409, [
-                'success' => false,
-                'error' => 'El usuario o correo ya están registrados.',
-            ]);
-        }
-
-        jsonResponse(500, [
-            'success' => false,
-            'error' => 'No se pudo crear la cuenta. Intenta de nuevo más tarde.',
-        ]);
-    }
-
-    $insert->close();
-
-    jsonResponse(201, [
-        'success' => true,
-        'message' => 'Cuenta creada correctamente. Ya puedes ingresar.',
-        'data' => [
-            'usuario' => $usuario,
-            'rol' => $rol,
-        ],
-    ]);
-}
-
 function consultarPreguntaSeguridad(mysqli $conn, array $data): void
 {
     $usuario = normalizeUsername($data['usuario'] ?? '');
-    $correo = strtolower(normalizeText($data['correo'] ?? ''));
+    $correo = strtolower(normalizeText($data['correo'] ?? $data['usuario'] ?? ''));
+    $usuario = $correo;
 
     if ($usuario === '' || $correo === '') {
         jsonResponse(400, [
@@ -2592,7 +2466,8 @@ function consultarPreguntaSeguridad(mysqli $conn, array $data): void
 function recuperarContrasena(mysqli $conn, array $data): void
 {
     $usuario = normalizeUsername($data['usuario'] ?? '');
-    $correo = strtolower(normalizeText($data['correo'] ?? ''));
+    $correo = strtolower(normalizeText($data['correo'] ?? $data['usuario'] ?? ''));
+    $usuario = $correo;
     $respuesta = normalizeSecurityAnswer($data['respuesta_seguridad'] ?? '');
     $contrasenaNueva = (string) ($data['contrasena_nueva'] ?? '');
 
@@ -2686,8 +2561,9 @@ function recuperarContrasena(mysqli $conn, array $data): void
 function obtenerUsuariosAdmin(mysqli $conn): void
 {
     $authUser = requireAdminAccess();
+    $phoneField = docenteHasPhoneColumn($conn) ? 'telefono' : 'NULL AS telefono';
     $result = $conn->query(
-        'SELECT id, usuario, nombre, apellido, correo, rol, activo, fecha_registro
+        'SELECT id, usuario, nombre, apellido, correo, ' . $phoneField . ', rol, activo, fecha_registro
          FROM docentes
          ORDER BY activo DESC,
                   CASE WHEN LOWER(COALESCE(rol, "")) = "administrador" OR usuario = "admin" THEN 0 ELSE 1 END,
@@ -2717,7 +2593,8 @@ function obtenerUsuariosAdmin(mysqli $conn): void
 function crearUsuarioAdmin(mysqli $conn, array $data): void
 {
     requireAdminAccess();
-    $input = validateDocenteInput($conn, $data, true, true);
+    if (!docenteHasPhoneColumn($conn)) jsonResponse(503, ['success' => false, 'error' => 'Ejecuta la migración de recuperación de contraseñas antes de crear docentes.']);
+    $input = validateDocenteInput($conn, $data, false, true);
 
     $hashedPassword = password_hash($input['contrasena'], PASSWORD_DEFAULT);
     if ($hashedPassword === false) {
@@ -2728,8 +2605,8 @@ function crearUsuarioAdmin(mysqli $conn, array $data): void
     }
 
     $stmt = $conn->prepare(
-        'INSERT INTO docentes (usuario, password, nombre, apellido, correo, rol, activo)
-         VALUES (?, ?, ?, ?, ?, ?, ?)'
+        'INSERT INTO docentes (usuario, password, nombre, apellido, correo, telefono, rol, activo)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
     );
 
     if (!$stmt) {
@@ -2740,31 +2617,51 @@ function crearUsuarioAdmin(mysqli $conn, array $data): void
     }
 
     $stmt->bind_param(
-        'ssssssi',
+        'sssssssi',
         $input['usuario'],
         $hashedPassword,
         $input['nombre'],
         $input['apellido'],
         $input['correo'],
+        $input['telefono'],
         $input['rol'],
         $input['activo']
     );
 
-    if (!$stmt->execute()) {
+    if (!$conn->begin_transaction()) {
         $stmt->close();
-        jsonResponse(500, [
-            'success' => false,
-            'error' => 'No se pudo crear el usuario.',
-        ]);
+        jsonResponse(500, ['success' => false, 'error' => 'No fue posible iniciar la transacción para crear el docente.']);
+    }
+
+    if (!$stmt->execute()) {
+        $mysqlError = $stmt->errno;
+        $stmt->close();
+        $conn->rollback();
+        if ($mysqlError === 1062) {
+            jsonResponse(409, ['success' => false, 'error' => 'El correo electrónico ya está registrado.']);
+        }
+        error_log('Admin teacher creation failed with MySQL error ' . $mysqlError . '.');
+        jsonResponse(500, ['success' => false, 'error' => 'No se pudo crear el usuario.']);
     }
 
     $newId = (int) $conn->insert_id;
     $stmt->close();
 
-    $created = findDocenteById($conn, $newId);
+    $created = verifyCreatedDocente($conn, $newId, $input);
+    if (!$created) {
+        $conn->rollback();
+        error_log('Admin teacher creation could not verify the inserted record.');
+        jsonResponse(500, ['success' => false, 'error' => 'No se pudo confirmar el registro del docente; no se guardó la cuenta. Intenta nuevamente.']);
+    }
+
+    if (!$conn->commit()) {
+        $conn->rollback();
+        jsonResponse(500, ['success' => false, 'error' => 'No se pudo confirmar el guardado del docente. Intenta nuevamente.']);
+    }
+
     jsonResponse(201, [
         'success' => true,
-        'message' => 'Usuario creado correctamente.',
+        'message' => 'Docente registrado correctamente. Ya puede iniciar sesión con su correo electrónico y contraseña inicial.',
         'data' => $created ? buildDocenteAdminPayload($created) : ['id' => $newId],
     ]);
 }
@@ -2789,9 +2686,13 @@ function actualizarUsuarioAdmin(mysqli $conn, array $data): void
         ]);
     }
 
-    $input = validateDocenteInput($conn, $data, true, false, $userId);
-    $isCurrentUser = $userId === (int) ($authUser['id'] ?? 0);
     $currentRole = resolveDocenteRole($currentRow);
+    if (!docenteHasPhoneColumn($conn) && trim((string) ($data['telefono'] ?? '')) !== '') {
+        jsonResponse(503, ['success' => false, 'error' => 'Ejecuta la migración de recuperación de contraseñas para guardar teléfonos.']);
+    }
+    $input = validateDocenteInput($conn, $data, false, false, $userId);
+    $input['rol'] = $currentRole;
+    $isCurrentUser = $userId === (int) ($authUser['id'] ?? 0);
     $willRemainAdmin = $input['rol'] === 'administrador';
     $willRemainActive = (int) $input['activo'] === 1;
 
@@ -2822,12 +2723,15 @@ function actualizarUsuarioAdmin(mysqli $conn, array $data): void
         }
     }
 
+    $hasPhone = docenteHasPhoneColumn($conn);
+    $phoneAssignment = $hasPhone ? 'telefono = ?, ' : '';
     $stmt = $conn->prepare(
         'UPDATE docentes
          SET usuario = ?,
              nombre = ?,
              apellido = ?,
              correo = ?,
+             ' . $phoneAssignment . '
              rol = ?,
              activo = ?,
              password = COALESCE(NULLIF(?, ""), password)
@@ -2841,17 +2745,11 @@ function actualizarUsuarioAdmin(mysqli $conn, array $data): void
         ]);
     }
 
-    $stmt->bind_param(
-        'sssssisi',
-        $input['usuario'],
-        $input['nombre'],
-        $input['apellido'],
-        $input['correo'],
-        $input['rol'],
-        $input['activo'],
-        $hashedPassword,
-        $userId
-    );
+    if ($hasPhone) {
+        $stmt->bind_param('ssssssisi', $input['usuario'], $input['nombre'], $input['apellido'], $input['correo'], $input['telefono'], $input['rol'], $input['activo'], $hashedPassword, $userId);
+    } else {
+        $stmt->bind_param('sssssisi', $input['usuario'], $input['nombre'], $input['apellido'], $input['correo'], $input['rol'], $input['activo'], $hashedPassword, $userId);
+    }
 
     if (!$stmt->execute()) {
         $stmt->close();
@@ -3398,6 +3296,22 @@ function guardarRegistro(mysqli $conn, array $data): void
     ]);
 }
 
+$method = $_SERVER['REQUEST_METHOD'];
+$action = getRequestAction();
+
+if ($method === 'POST' && $action === 'crearDocente') {
+    jsonResponse(403, [
+        'success' => false,
+        'error' => 'El registro público está deshabilitado. Contacta a la administradora para solicitar una cuenta.',
+    ]);
+}
+
+$adminOnlyActions = ['crearUsuarioAdmin', 'actualizarUsuarioAdmin', 'eliminarUsuarioAdmin'];
+if (($method === 'POST' && in_array($action, $adminOnlyActions, true))
+    || ($method === 'GET' && $action === 'obtenerUsuariosAdmin')) {
+    requireAdminAccess();
+}
+
 try {
     ensureDatabaseReady();
     $conn = conectarDB();
@@ -3408,9 +3322,6 @@ try {
         'hint' => 'Verifica que MySQL (XAMPP) esté iniciado y que la base exista.',
     ]);
 }
-
-$method = $_SERVER['REQUEST_METHOD'];
-$action = getRequestAction();
 
 if ($method === 'GET') {
     switch ($action) {
@@ -3488,16 +3399,21 @@ if ($method === 'POST') {
             guardarAcudiente($conn, $payload);
             break;
 
-        case 'crearDocente':
-            crearDocente($conn, $payload);
-            break;
-
         case 'consultarPreguntaSeguridad':
-            consultarPreguntaSeguridad($conn, $payload);
+        case 'recuperarContrasena':
+            jsonResponse(410, ['success' => false, 'error' => 'La recuperación por pregunta de seguridad fue deshabilitada. Solicita un enlace temporal por correo.']);
             break;
 
-        case 'recuperarContrasena':
-            recuperarContrasena($conn, $payload);
+        case 'solicitarRestablecimiento':
+            requestPasswordReset($conn, $payload);
+            break;
+
+        case 'restablecerContrasena':
+            resetPasswordWithToken($conn, $payload);
+            break;
+
+        case 'cambiarMiContrasena':
+            changeOwnPassword($conn, $payload);
             break;
 
         case 'crearUsuarioAdmin':

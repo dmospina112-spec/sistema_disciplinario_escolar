@@ -1,13 +1,12 @@
 <?php
 declare(strict_types=1);
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+require_once dirname(__DIR__) . '/app/backend/session.php';
+ensureAppSessionStarted();
 
 $authUser = $_SESSION['auth_user'] ?? null;
 if (!is_array($authUser) || (($authUser['rol'] ?? '') !== 'administrador')) {
-    header('Location: index.php');
+    header('Location: acceso.php');
     exit;
 }
 
@@ -154,19 +153,19 @@ $heroLogoVersion = $assetVersion(__DIR__ . '/img/Logo-hero-contrast-v3.png');
                       </div>
 
                       <div class="mb-3">
-                        <label for="adminUsuario" class="form-label">Usuario</label>
-                        <input type="text" class="form-control" id="adminUsuario" placeholder="Ej. coordinacion1" minlength="4" maxlength="30" required>
+                        <label for="adminUsuario" class="form-label">Correo electrónico (también será el usuario de ingreso)</label>
+                        <input type="email" class="form-control" id="adminUsuario" placeholder="docente@institucion.edu.co" required>
                       </div>
 
                       <div class="mb-3">
-                        <label for="adminCorreo" class="form-label">Correo electrónico</label>
-                        <input type="email" class="form-control" id="adminCorreo" placeholder="correo@institucion.edu.co" required>
+                        <label for="adminTelefono" class="form-label">Teléfono</label>
+                        <input type="tel" class="form-control" id="adminTelefono" placeholder="Ej. +57 300 123 4567" autocomplete="tel" required>
                       </div>
 
                       <div class="row g-3">
                         <div class="col-md-6">
                           <label for="adminRol" class="form-label">Rol</label>
-                          <select class="form-select" id="adminRol" required>
+                          <select class="form-select" id="adminRol" required disabled>
                             <option value="docente">Docente</option>
                             <option value="administrador">Administrador</option>
                           </select>
@@ -183,13 +182,23 @@ $heroLogoVersion = $assetVersion(__DIR__ . '/img/Logo-hero-contrast-v3.png');
 
                       <div class="mt-3 mb-3">
                         <label for="adminContrasena" class="form-label">Contraseña</label>
-                        <input type="password" class="form-control" id="adminContrasena" placeholder="Mínimo 8 caracteres" minlength="8">
-                        <div class="form-text" id="adminPasswordHelp">Obligatoria al crear. Si editas y la dejas vacía, se conserva la actual.</div>
+                        <div class="input-group">
+                          <input type="password" class="form-control" id="adminContrasena" placeholder="Mínimo 10 caracteres, mayúscula, minúscula y número" minlength="10" autocomplete="new-password">
+                          <button class="btn btn-outline-secondary" type="button" data-password-toggle="adminContrasena" aria-label="Mostrar contraseña" aria-pressed="false" onclick="const input=document.getElementById(this.dataset.passwordToggle);const visible=input.type==='password';input.type=visible?'text':'password';this.setAttribute('aria-pressed',String(visible));this.setAttribute('aria-label',visible?'Ocultar clave':'Mostrar clave');">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+                          </button>
+                        </div>
+                        <div class="form-text" id="adminPasswordHelp">Obligatoria al crear. Se guardará con hash y nunca se enviará por correo.</div>
                       </div>
 
                       <div class="mb-4">
                         <label for="adminContrasenaConfirmacion" class="form-label">Confirmar contraseña</label>
-                        <input type="password" class="form-control" id="adminContrasenaConfirmacion" placeholder="Repite la contraseña" minlength="8">
+                        <div class="input-group">
+                          <input type="password" class="form-control" id="adminContrasenaConfirmacion" placeholder="Repite la contraseña" minlength="10" autocomplete="new-password">
+                          <button class="btn btn-outline-secondary" type="button" data-password-toggle="adminContrasenaConfirmacion" aria-label="Mostrar contraseña" aria-pressed="false" onclick="const input=document.getElementById(this.dataset.passwordToggle);const visible=input.type==='password';input.type=visible?'text':'password';this.setAttribute('aria-pressed',String(visible));this.setAttribute('aria-label',visible?'Ocultar clave':'Mostrar clave');">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+                          </button>
+                        </div>
                       </div>
 
                       <div class="admin-form-actions-wrap">

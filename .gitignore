@@ -1,4 +1,5 @@
 .env
+.env.local
 /vendor/
 storage/backups/
 *.bat

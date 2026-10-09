@@ -445,8 +445,8 @@ body.site-body.login-page::after {
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
-  align-items: center;
-  margin-top: 1rem;
+  align-items: flex-end;
+  margin: -0.35rem 0 0.55rem;
 }
 
 .auth-switch,

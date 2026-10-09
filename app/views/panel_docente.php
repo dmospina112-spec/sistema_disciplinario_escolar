@@ -2,17 +2,18 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/backend/session.php';
+require_once dirname(__DIR__) . '/backend/password_reset.php';
 
 try {
     ensureAppSessionStarted();
 } catch (Throwable $_) {
-    header('Location: index.php');
+    header('Location: acceso.php');
     exit;
 }
 
 $authUser = $_SESSION['auth_user'] ?? null;
 if (!is_array($authUser) || (($authUser['rol'] ?? '') !== 'docente')) {
-    header('Location: index.php');
+    header('Location: acceso.php');
     exit;
 }
 
@@ -25,16 +26,18 @@ header_remove('ETag');
 header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
 
 $projectRoot = dirname(__DIR__, 2);
-$chatbotCssVersion = (string) filemtime($projectRoot . '/frontend/chatbot/chatbot.css');
-$chatbotJsVersion = (string) filemtime($projectRoot . '/frontend/chatbot/chatbot.js') . '-20260416';
-$estudiantesJsVersion = (string) filemtime($projectRoot . '/frontend/js/estudiantes.js');
+$csrfToken = getCsrfToken();
+$chatbotCssVersion = (string) md5_file($projectRoot . '/frontend/chatbot/chatbot.css');
+$chatbotJsVersion = (string) md5_file($projectRoot . '/frontend/chatbot/chatbot.js');
+$estudiantesJsVersion = (string) md5_file($projectRoot . '/frontend/js/estudiantes.js');
 $stylesVersion = (string) md5_file($projectRoot . '/frontend/css/styles.css');
-$scriptJsVersion = (string) filemtime($projectRoot . '/frontend/js/script.js');
+$scriptJsVersion = (string) md5_file($projectRoot . '/frontend/js/script.js');
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <meta name="csrf-token" content="<?php echo htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8'); ?>">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
   <meta http-equiv="Pragma" content="no-cache">

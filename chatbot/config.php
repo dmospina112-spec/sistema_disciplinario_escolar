@@ -31,35 +31,41 @@ function loadLocalEnv(): void
         return;
     }
 
-    $envPath = __DIR__ . '/.env';
-    if (!is_file($envPath) || !is_readable($envPath)) {
-        $loaded = true;
-        return;
-    }
+    $projectRoot = dirname(__DIR__);
+    $envPaths = [
+        $projectRoot . '/.env.local',
+        __DIR__ . '/.env',
+        $projectRoot . '/.env',
+    ];
 
-    $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    if ($lines === false) {
-        $loaded = true;
-        return;
-    }
-
-    foreach ($lines as $line) {
-        $trimmed = trim($line);
-        if ($trimmed === '' || strpos($trimmed, '#') === 0) {
+    foreach ($envPaths as $envPath) {
+        if (!is_file($envPath) || !is_readable($envPath)) {
             continue;
         }
 
-        $parts = explode('=', $trimmed, 2);
-        if (count($parts) !== 2) {
+        $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        if ($lines === false) {
             continue;
         }
 
-        $key = trim($parts[0]);
-        $value = trim($parts[1]);
+        foreach ($lines as $line) {
+            $trimmed = trim($line);
+            if ($trimmed === '' || strpos($trimmed, '#') === 0) {
+                continue;
+            }
 
-        if (!getenv($key)) {
-            putenv("$key=$value");
-            $_ENV[$key] = $value;
+            $parts = explode('=', $trimmed, 2);
+            if (count($parts) !== 2) {
+                continue;
+            }
+
+            $key = trim($parts[0]);
+            $value = trim($parts[1]);
+
+            if (!getenv($key)) {
+                putenv("$key=$value");
+                $_ENV[$key] = $value;
+            }
         }
     }
 

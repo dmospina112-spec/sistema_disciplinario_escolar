@@ -9,6 +9,8 @@
             en un flujo visual más claro y continuo.
           </p>
         </div>
+        <div class="d-flex gap-2 flex-wrap">
+        <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#changePasswordModal">Cambiar contraseña</button>
         <button
           type="button"
           class="btn btn-sm admin-logout-btn"
@@ -19,6 +21,7 @@
           onfocus="this.style.color='#ffffff';this.style.borderColor='#b91c1c';this.style.background='linear-gradient(135deg, #ef4444 0%, #dc2626 100%)';"
           onblur="this.style.color='#dc2626';this.style.borderColor='#ef4444';this.style.background='rgba(255,255,255,0.88)';"
         >Cerrar sesión</button>
+        </div>
       </div>
 
       <div class="workflow-stage-bar" id="workflowStageBar" aria-label="Etapas del flujo">
@@ -541,5 +544,20 @@
         </div>
       </div>
     </section>
+  </div>
+  <div class="modal fade" id="changePasswordModal" tabindex="-1" aria-labelledby="changePasswordTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+      <form id="changePasswordForm" novalidate>
+        <div class="modal-header"><h2 class="modal-title fs-5" id="changePasswordTitle">Cambiar contraseña</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+        <div class="modal-body">
+          <label class="form-label" for="currentPassword">Contraseña actual</label><input class="form-control mb-3" id="currentPassword" type="password" autocomplete="current-password" required>
+          <label class="form-label" for="newPassword">Nueva contraseña</label><input class="form-control mb-2" id="newPassword" type="password" minlength="10" autocomplete="new-password" required>
+          <div class="form-text mb-3">Mínimo 10 caracteres, con mayúscula, minúscula y número.</div>
+          <label class="form-label" for="confirmNewPassword">Confirmar nueva contraseña</label><input class="form-control" id="confirmNewPassword" type="password" minlength="10" autocomplete="new-password" required>
+          <div id="changePasswordMessage" class="alert d-none mt-3 mb-0" role="alert"></div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button class="btn btn-primary" type="submit">Guardar contraseña</button></div>
+      </form>
+    </div></div>
   </div>
 

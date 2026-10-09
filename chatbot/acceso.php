@@ -1,13 +1,10 @@
 <?php
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '/backend/session.php';
-require_once dirname(__DIR__) . '/backend/password_reset.php';
-
-try {
-    ensureAppSessionStarted();
-} catch (Throwable $_) {
-}
+require_once dirname(__DIR__) . '/app/backend/session.php';
+ensureAppSessionStarted();
+require_once dirname(__DIR__) . '/app/backend/password_reset.php';
+$csrfToken = getCsrfToken();
 
 $authUser = $_SESSION['auth_user'] ?? null;
 if (is_array($authUser)) {
@@ -25,10 +22,8 @@ header('Expires: 0');
 header_remove('ETag');
 header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
 
-$projectRoot = dirname(__DIR__, 2);
-$csrfToken = getCsrfToken();
-$stylesVersion = (string) md5_file($projectRoot . '/frontend/css/styles.css');
-$scriptJsVersion = (string) md5_file($projectRoot . '/frontend/js/script.js');
+$stylesVersion = (string) md5_file(__DIR__ . '/styles/styles.css');
+$scriptJsVersion = (string) md5_file(__DIR__ . '/js/script.js');
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -44,15 +39,16 @@ $scriptJsVersion = (string) md5_file($projectRoot . '/frontend/js/script.js');
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="frontend/css/styles.css?v=<?php echo htmlspecialchars($stylesVersion, ENT_QUOTES, 'UTF-8'); ?>">
+  <link rel="stylesheet" href="styles/styles.css?v=<?php echo htmlspecialchars($stylesVersion, ENT_QUOTES, 'UTF-8'); ?>">
 </head>
 <body class="site-body login-page">
   <main class="login-shell container-xxl">
     <section class="login-hero">
       <div class="hero-brand">
-        <img src="frontend/img/Logo-comportate-transparent.png" alt="Logo Comportate" class="hero-logo">
+        <img src="img/Logo.png" alt="Escudo institucional" class="hero-logo">
         <div class="hero-brand-copy">
           <span class="hero-kicker">Plataforma docente</span>
+          <span class="hero-motto">Ciencia, amor y virtud</span>
         </div>
       </div>
 
@@ -92,7 +88,7 @@ $scriptJsVersion = (string) md5_file($projectRoot . '/frontend/js/script.js');
             <button type="button" class="btn btn-link auth-help" id="recordarBtn">¿Olvidaste tu contraseña?</button>
           </div>
           <button type="submit" class="btn btn-primary w-100 auth-submit">Ingresar</button>
-          <p class="auth-copy text-center mt-2">¿Necesitas una cuenta? <a href="index.php#contacto">Contacta a la administradora.</a></p>
+          <p class="auth-copy text-center mt-2">¿Necesitas una cuenta? <a href="../#contacto">Contacta a la administradora.</a></p>
         </form>
 
 
@@ -117,9 +113,9 @@ $scriptJsVersion = (string) md5_file($projectRoot . '/frontend/js/script.js');
   <footer class="site-footer">
     <div class="site-footer-shell">
       <div class="site-footer-brand">
-        <img src="frontend/img/Logo-comportate-white-clean.png" alt="Logo Comportate" class="site-footer-logo">
+        <img src="img/Logo.png" alt="Logo institucional" class="site-footer-logo">
         <div>
-          <strong>Tú comportaminto construye un entorno positivo</strong>
+          <strong>Institución Educativa Gilberto Alzate Avendaño</strong>
           <p>Plataforma de seguimiento disciplinario.</p>
         </div>
       </div>
@@ -127,7 +123,7 @@ $scriptJsVersion = (string) md5_file($projectRoot . '/frontend/js/script.js');
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="frontend/js/script.js?v=<?php echo htmlspecialchars($scriptJsVersion, ENT_QUOTES, 'UTF-8'); ?>"></script>
+  <script src="js/script.js?v=<?php echo htmlspecialchars($scriptJsVersion, ENT_QUOTES, 'UTF-8'); ?>"></script>
 
 </body>
 </html>

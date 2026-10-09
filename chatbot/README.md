@@ -65,7 +65,7 @@ Nota:
 - Para Gmail debes usar una contraseña de aplicación, no tu contraseña normal.
 
 ## Estructura principal
-- `index.html`: interfaz principal.
+- `index.php`: entrada a la landing comercial del proyecto; `acceso.php`: acceso al sistema docente de esta copia.
 - `api.php`: API backend (login, CRUD estudiantes, guardar registros).
 - `config.php`: configuración MySQL.
 - `database.sql`: creación de la base `app_educativa_recuperada`.
@@ -92,3 +92,10 @@ Nota:
 - La eliminación de estudiantes es lógica (`activo = 0`).
 - El proyecto queda configurado para usar `app_educativa_recuperada`.
 - La base antigua `app_educativa` puede permanecer aparte sin afectar la app.
+
+## Contraseñas de docentes y recuperación por correo
+- El correo registrado es también el usuario para iniciar sesión. El administrador define la contraseña inicial (mínimo 10 caracteres con mayúscula, minúscula y número); se guarda con `password_hash()` y nunca se manda por correo.
+- Desde el panel docente se puede cambiar la contraseña propia, validando sesión, CSRF y contraseña actual.
+- La recuperación entrega un enlace aleatorio de un solo uso, con hash guardado y vencimiento de 30 minutos. La respuesta es genérica y hay límite por IP/correo. La entrega requiere SMTP operativo.
+- Antes de usar esos flujos, respalda MySQL y ejecuta manualmente `../database/migrations/20261008_password_reset.sql` en `app_educativa_recuperada`. El script no se ejecutó y no elimina cuentas ni tablas.
+- Completa `APP_BASE_URL` y `APP_SECRET` en `.env.local`, y las variables SMTP en `.env`. En producción `APP_BASE_URL` debe usar HTTPS. `.env.example` contiene el formato de referencia.

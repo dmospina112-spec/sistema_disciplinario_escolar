@@ -51,6 +51,17 @@ FileETag None
     Require all denied
 </Files>
 
+# Evita que archivos de entorno y configuracion interna queden disponibles por HTTP.
+<FilesMatch "^\.env(?:\..*)?$">
+    Require all denied
+</FilesMatch>
+
+<FilesMatch "^(?:config|contact-mailer)\.php$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+</FilesMatch>
+
 <FilesMatch "^database.*\.sql$">
     Require all denied
 </FilesMatch>

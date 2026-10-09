@@ -138,7 +138,10 @@ async function requestAdminUsers(action, method = 'GET', payload = null, query =
   }
 
   if (!response.ok || data.success === false) {
-    throw new Error(data.error || data.message || `Error HTTP ${response.status}`);
+    const message = response.status === 403
+      ? (data.error || 'No hay una sesión administrativa válida. Inicia sesión como administradora; esta solicitud no guardó el docente.')
+      : (data.error || data.message || `Error HTTP ${response.status}`);
+    throw new Error(message);
   }
 
   return data;
@@ -482,6 +485,8 @@ async function loadAdminUsers() {
 
 function updateAdminFormMode() {
   const isEditing = Number(adminUserEditingId) > 0;
+  const phoneInput = document.getElementById('adminTelefono');
+  if (phoneInput) phoneInput.required = !isEditing;
 
   if (adminUsuarioFormTitle) {
     adminUsuarioFormTitle.textContent = isEditing ? 'Editar usuario' : 'Crear o editar usuario';
@@ -516,7 +521,7 @@ function updateAdminFormMode() {
   if (adminUsuariosPasswordHelp) {
     adminUsuariosPasswordHelp.textContent = isEditing
       ? 'Opcional al editar. Si la dejas vacia, se conserva la contraseña actual.'
-      : 'Obligatoria al crear. Debe tener al menos 8 caracteres.';
+      : 'Obligatoria al crear. Debe tener al menos 10 caracteres, mayúscula, minúscula y número.';
   }
 }
 
@@ -548,7 +553,13 @@ function resetAdminUserForm() {
   document.getElementById('adminUsuarioId').value = '';
   document.getElementById('adminRol').value = 'docente';
   document.getElementById('adminEstado').value = '1';
-  document.getElementById('adminRol').disabled = false;
+  document.querySelectorAll('[data-password-toggle]').forEach((button) => {
+    const input = document.getElementById(button.dataset.passwordToggle);
+    if (input) input.type = 'password';
+    button.setAttribute('aria-pressed', 'false');
+    button.setAttribute('aria-label', 'Mostrar contraseña');
+  });
+  document.getElementById('adminRol').disabled = true;
   document.getElementById('adminEstado').disabled = false;
   updateAdminFormMode();
 }
@@ -560,12 +571,13 @@ function fillAdminUserForm(user) {
   document.getElementById('adminNombre').value = user.nombre || '';
   document.getElementById('adminApellido').value = user.apellido || '';
   document.getElementById('adminUsuario').value = user.usuario || '';
-  document.getElementById('adminCorreo').value = user.correo || '';
+  document.getElementById('adminUsuario').value = user.correo || user.usuario || '';
+  document.getElementById('adminTelefono').value = user.telefono || '';
   document.getElementById('adminRol').value = user.rol || 'docente';
   document.getElementById('adminEstado').value = user.activo ? '1' : '0';
   document.getElementById('adminContrasena').value = '';
   document.getElementById('adminContrasenaConfirmacion').value = '';
-  document.getElementById('adminRol').disabled = Boolean(user.es_actual);
+  document.getElementById('adminRol').disabled = true;
   document.getElementById('adminEstado').disabled = Boolean(user.es_actual);
   updateAdminFormMode();
   showAdminUsersMessage(
@@ -582,8 +594,9 @@ function buildAdminUserPayload() {
     id: editingId,
     nombre: document.getElementById('adminNombre').value.trim(),
     apellido: document.getElementById('adminApellido').value.trim(),
-    usuario: normalizeAdminUsername(document.getElementById('adminUsuario').value),
-    correo: document.getElementById('adminCorreo').value.trim().toLowerCase(),
+    usuario: document.getElementById('adminUsuario').value.trim().toLowerCase(),
+    correo: document.getElementById('adminUsuario').value.trim().toLowerCase(),
+    telefono: document.getElementById('adminTelefono').value.trim(),
     rol: document.getElementById('adminRol').value,
     activo: document.getElementById('adminEstado').value === '1',
     contrasena: document.getElementById('adminContrasena').value,
@@ -592,7 +605,7 @@ function buildAdminUserPayload() {
 }
 
 function validateAdminUserPayload(payload, isEditing) {
-  if (!payload.nombre || !payload.apellido || !payload.usuario || !payload.correo) {
+  if (!payload.nombre || !payload.apellido || !payload.usuario || !payload.correo || (!isEditing && !payload.telefono)) {
     throw new Error('Completa nombre, apellido, usuario y correo.');
   }
 
@@ -600,20 +613,28 @@ function validateAdminUserPayload(payload, isEditing) {
     throw new Error('Nombre y apellido deben tener al menos 2 caracteres.');
   }
 
-  if (!/^[a-z0-9._-]{4,30}$/.test(payload.usuario)) {
-    throw new Error('El usuario debe tener entre 4 y 30 caracteres y solo puede usar letras, numeros, punto, guion y guion bajo.');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.usuario)) {
+    throw new Error('El correo debe tener un formato válido y será el usuario para iniciar sesión.');
   }
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.correo)) {
     throw new Error('Ingresa un correo electronico valido.');
   }
 
-  if (!isEditing && payload.contrasena.length < 8) {
-    throw new Error('La contraseña es obligatoria y debe tener al menos 8 caracteres.');
+  if (payload.telefono && (!/^[0-9+().\-\s]{7,30}$/.test(payload.telefono) || payload.telefono.replace(/\D/g, '').length < 7)) {
+    throw new Error('Ingresa un teléfono válido.');
   }
 
-  if (payload.contrasena && payload.contrasena.length < 8) {
-    throw new Error('La contraseña debe tener al menos 8 caracteres.');
+  if (!isEditing && payload.contrasena.length < 10) {
+    throw new Error('La contraseña es obligatoria y debe tener al menos 10 caracteres.');
+  }
+
+  if (payload.contrasena && payload.contrasena.length < 10) {
+    throw new Error('La contraseña debe tener al menos 10 caracteres.');
+  }
+
+  if (payload.contrasena && (!/[a-z]/.test(payload.contrasena) || !/[A-Z]/.test(payload.contrasena) || !/[0-9]/.test(payload.contrasena))) {
+    throw new Error('La contraseña debe incluir mayúscula, minúscula y número.');
   }
 
   if (payload.contrasena !== payload.confirmacion) {
@@ -641,6 +662,7 @@ async function submitAdminUserForm() {
       apellido: payload.apellido,
       usuario: payload.usuario,
       correo: payload.correo,
+      telefono: payload.telefono,
       rol: payload.rol,
       activo: payload.activo,
       contrasena: payload.contrasena,
@@ -655,12 +677,13 @@ async function submitAdminUserForm() {
       syncAdminUserInState(updatedUser);
     }
 
-    showAdminUsersMessage(
-      result.message || (isEditing ? 'Cambios guardados correctamente.' : 'Usuario creado correctamente.'),
-      'success'
-    );
     resetAdminUserForm();
     await loadAdminUsers();
+    const successMessage = result.message || (isEditing
+      ? 'Cambios guardados correctamente.'
+      : 'Docente registrado correctamente. Ya puede iniciar sesión con su correo electrónico y contraseña inicial.');
+    const confirmedEmail = result.data?.correo || payload.correo;
+    showAdminUsersMessage(isEditing ? successMessage : `${successMessage} Cuenta verificada: ${confirmedEmail}.`, 'success');
   } catch (error) {
     showAdminUsersMessage(error.message, 'danger');
   } finally {
