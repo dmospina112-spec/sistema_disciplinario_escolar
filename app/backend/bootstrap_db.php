@@ -53,12 +53,13 @@ function ensureDatabaseReady(): void
     $schemaStatements = [
         "CREATE TABLE IF NOT EXISTS docentes (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            usuario VARCHAR(50) NOT NULL UNIQUE,
+            usuario VARCHAR(254) NOT NULL UNIQUE,
             password VARCHAR(255) NOT NULL,
             nombre VARCHAR(100) NOT NULL,
             apellido VARCHAR(100) NOT NULL DEFAULT 'Docente',
             rol VARCHAR(20) NOT NULL DEFAULT 'docente',
-            correo VARCHAR(100) DEFAULT NULL,
+            correo VARCHAR(254) DEFAULT NULL,
+            telefono VARCHAR(30) DEFAULT NULL,
             pregunta_seguridad VARCHAR(80) DEFAULT NULL,
             respuesta_seguridad_hash VARCHAR(255) DEFAULT NULL,
             activo TINYINT(1) NOT NULL DEFAULT 1,
@@ -194,6 +195,46 @@ function ensureDatabaseReady(): void
     if (!$securityAnswerColumnCheck || $securityAnswerColumnCheck->num_rows === 0) {
         $serverConn->query("ALTER TABLE docentes ADD COLUMN respuesta_seguridad_hash VARCHAR(255) DEFAULT NULL AFTER pregunta_seguridad");
     }
+
+    // Estas columnas son necesarias para que el alta administrativa y la
+    // recuperación por correo funcionen también en bases creadas con una
+    // versión anterior del sistema.
+    $phoneColumnCheck = $serverConn->query("SHOW COLUMNS FROM docentes LIKE 'telefono'");
+    if (!$phoneColumnCheck || $phoneColumnCheck->num_rows === 0) {
+        $serverConn->query("ALTER TABLE docentes ADD COLUMN telefono VARCHAR(30) DEFAULT NULL AFTER correo");
+    }
+
+    // Las bases antiguas tenían límites demasiado cortos para correos reales.
+    // La operación es segura e idempotente para la estructura actual.
+    $serverConn->query("ALTER TABLE docentes MODIFY COLUMN usuario VARCHAR(254) NOT NULL");
+    $serverConn->query("ALTER TABLE docentes MODIFY COLUMN correo VARCHAR(254) DEFAULT NULL");
+
+    $serverConn->query(
+        "CREATE TABLE IF NOT EXISTS password_reset_tokens (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            docente_id INT NOT NULL,
+            token_hash CHAR(64) NOT NULL,
+            expires_at DATETIME NOT NULL,
+            used_at DATETIME NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_password_reset_token_hash (token_hash),
+            KEY idx_password_reset_docente (docente_id),
+            KEY idx_password_reset_expiry (expires_at),
+            CONSTRAINT fk_password_reset_docente
+                FOREIGN KEY (docente_id) REFERENCES docentes(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
+
+    $serverConn->query(
+        "CREATE TABLE IF NOT EXISTS password_reset_requests (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            email_hash CHAR(64) NOT NULL,
+            ip_hash CHAR(64) NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            KEY idx_password_reset_request_email_created (email_hash, created_at),
+            KEY idx_password_reset_request_ip_created (ip_hash, created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
 
     $acudienteApellidoColumnCheck = $serverConn->query("SHOW COLUMNS FROM acudientes LIKE 'apellido'");
     if (!$acudienteApellidoColumnCheck || $acudienteApellidoColumnCheck->num_rows === 0) {

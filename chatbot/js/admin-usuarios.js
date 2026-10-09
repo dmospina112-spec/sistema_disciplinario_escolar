@@ -109,6 +109,7 @@ async function requestAdminUsers(action, method = 'GET', payload = null, query =
     credentials: 'same-origin',
     headers: {
       'Content-Type': 'application/json',
+      'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || '',
       'Cache-Control': 'no-store, no-cache, max-age=0',
       Pragma: 'no-cache',
     },

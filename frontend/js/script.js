@@ -12,6 +12,60 @@ const DOCENTE_STORAGE_KEY = 'docente';
 const SESSION_FLAG = 'authed';
 const PANEL_PATHS = { administrador: 'panel_admin.php', docente: 'panel_docente.php' };
 
+function ensurePasswordVisibilityControls(root = document) {
+  root.querySelectorAll('input[type="password"]').forEach((input, index) => {
+    const inputParent = input.parentElement;
+    const existingToggle = inputParent
+      && (inputParent.classList.contains('password-field') || inputParent.classList.contains('input-group'))
+      ? inputParent.querySelector('[data-password-toggle]')
+      : null;
+    if (existingToggle) return;
+
+    if (!input.id) input.id = `password-field-${index}`;
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'password-field';
+    input.parentNode.insertBefore(wrapper, input);
+    wrapper.appendChild(input);
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'password-toggle';
+    button.dataset.passwordToggle = input.id;
+    button.setAttribute('aria-label', 'Mostrar contraseña');
+    button.setAttribute('aria-pressed', 'false');
+    button.title = 'Mostrar contraseña';
+    button.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>';
+    wrapper.appendChild(button);
+  });
+}
+
+function bindPasswordVisibilityToggles(root = document) {
+  root.querySelectorAll('[data-password-toggle]').forEach((button) => {
+    if (button.dataset.passwordToggleBound === 'true') return;
+    if (button.hasAttribute('onclick')) return;
+
+    const inputId = button.dataset.passwordToggle;
+    const input = document.getElementById(inputId);
+    if (!input) return;
+
+    button.dataset.passwordToggleBound = 'true';
+    button.addEventListener('click', () => {
+      const shouldShow = input.type === 'password';
+      input.type = shouldShow ? 'text' : 'password';
+      button.setAttribute('aria-pressed', String(shouldShow));
+      button.setAttribute('aria-label', shouldShow ? 'Ocultar contraseña' : 'Mostrar contraseña');
+      button.setAttribute('title', shouldShow ? 'Ocultar contraseña' : 'Mostrar contraseña');
+      input.focus({ preventScroll: true });
+    });
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  ensurePasswordVisibilityControls();
+  bindPasswordVisibilityToggles();
+});
+
 function toggleLoginMode(mode) {
   loginForm?.classList.toggle('d-none', mode !== 'login');
   recoverForm?.classList.toggle('d-none', mode !== 'recover');
@@ -57,6 +111,7 @@ async function postAction(action, payload) {
   const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
   const response = await fetch(`${API_ENDPOINT}?action=${encodeURIComponent(action)}`, {
     method: 'POST',
+    credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
     body: JSON.stringify(payload),
   });
@@ -107,6 +162,7 @@ recoverForm?.addEventListener('submit', async (event) => {
 
 document.getElementById('changePasswordForm')?.addEventListener('submit', async (event) => {
   event.preventDefault();
+  const form = event.currentTarget;
   const current = document.getElementById('currentPassword').value;
   const password = document.getElementById('newPassword').value;
   const confirmation = document.getElementById('confirmNewPassword').value;
@@ -122,7 +178,7 @@ document.getElementById('changePasswordForm')?.addEventListener('submit', async 
     const result = await postAction('cambiarMiContrasena', { contrasena_actual: current, contrasena_nueva: password, confirmacion: confirmation });
     message.classList.add('alert-success');
     message.textContent = result.message;
-    event.currentTarget.reset();
+    form.reset();
   } catch (error) {
     message.classList.add('alert-danger');
     message.textContent = error.message;
@@ -241,8 +297,8 @@ function cerrarSesion() {
       const forms = document.querySelectorAll('form');
       forms.forEach((form) => form.reset());
       mensajeError?.classList.add('d-none');
-      hideRecoveryMessage();
-      clearRecoveryVerificationState();
+      if (typeof hideRecoveryMessage === 'function') hideRecoveryMessage();
+      if (typeof clearRecoveryVerificationState === 'function') clearRecoveryVerificationState();
       toggleLoginMode('login');
     });
 }

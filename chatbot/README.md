@@ -97,5 +97,5 @@ Nota:
 - El correo registrado es también el usuario para iniciar sesión. El administrador define la contraseña inicial (mínimo 10 caracteres con mayúscula, minúscula y número); se guarda con `password_hash()` y nunca se manda por correo.
 - Desde el panel docente se puede cambiar la contraseña propia, validando sesión, CSRF y contraseña actual.
 - La recuperación entrega un enlace aleatorio de un solo uso, con hash guardado y vencimiento de 30 minutos. La respuesta es genérica y hay límite por IP/correo. La entrega requiere SMTP operativo.
-- Antes de usar esos flujos, respalda MySQL y ejecuta manualmente `../database/migrations/20261008_password_reset.sql` en `app_educativa_recuperada`. El script no se ejecutó y no elimina cuentas ni tablas.
+- La inicialización automática verifica y crea las columnas y tablas necesarias para estos flujos sin borrar cuentas existentes. Para instalaciones nuevas, `database.sql` también incluye toda la estructura.
 - Completa `APP_BASE_URL` y `APP_SECRET` en `.env.local`, y las variables SMTP en `.env`. En producción `APP_BASE_URL` debe usar HTTPS. `.env.example` contiene el formato de referencia.

@@ -54,6 +54,24 @@ body.site-body > * {
   z-index: 1;
 }
 
+/* Al abrir un modal, el contenedor administrativo deja que Bootstrap ordene sus capas. */
+body.site-body.admin-panel-page.modal-open > .admin-dashboard-shell {
+  z-index: auto;
+}
+
+/* Los modales directos del body deben conservar el posicionamiento de Bootstrap. */
+body.site-body > .modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1055;
+}
+
+body.site-body > .modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+}
+
 .site-footer {
   margin: 2rem auto 1.35rem;
   padding: 0 1.25rem;
@@ -353,6 +371,72 @@ body.site-body.login-page::after {
 
 .auth-form {
   display: block;
+}
+
+.password-field {
+  position: relative;
+}
+
+.password-field .form-control {
+  padding-right: 3.25rem;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.55rem;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0.7rem;
+  color: #64748b;
+  background: transparent;
+  transform: translateY(-50%);
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.password-toggle:hover,
+.password-toggle:focus-visible {
+  color: #1d4f91;
+  background: rgba(29, 79, 145, 0.09);
+}
+
+.password-toggle:focus-visible {
+  outline: 2px solid rgba(29, 79, 145, 0.35);
+  outline-offset: 1px;
+}
+
+.password-toggle svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+#changePasswordModal .modal-dialog {
+  width: min(100% - 1rem, 430px);
+  margin: 0.5rem auto;
+}
+
+#changePasswordModal .modal-content {
+  max-height: calc(100vh - 1rem);
+}
+
+#changePasswordModal form {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+}
+
+#changePasswordModal .modal-body {
+  overflow-y: auto;
+}
+
+#changePasswordModal .modal-footer {
+  flex-shrink: 0;
 }
 
 .auth-subheader {
@@ -1081,6 +1165,26 @@ body.site-body:not(.login-page) .btn-outline-primary,
 body.site-body:not(.login-page) .btn-outline-danger,
 body.site-body:not(.login-page) .btn-outline-success {
   background: rgba(255, 255, 255, 0.72);
+}
+
+body.site-body:not(.login-page) .change-password-trigger {
+  color: #1d4f91;
+  border-color: #1d4f91;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+body.site-body:not(.login-page) .change-password-trigger:hover,
+body.site-body:not(.login-page) .change-password-trigger:focus,
+body.site-body:not(.login-page) .change-password-trigger:active {
+  color: #ffffff;
+  border-color: #1d4f91;
+  background: #1d4f91;
+  box-shadow: 0 8px 18px rgba(29, 79, 145, 0.2);
+}
+
+body.site-body:not(.login-page) .change-password-trigger:focus-visible {
+  outline: 2px solid rgba(29, 79, 145, 0.32);
+  outline-offset: 2px;
 }
 
 /* Keep management controls legible on hover. */

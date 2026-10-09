@@ -15,20 +15,46 @@ DROP TABLE IF EXISTS notificaciones_acudiente;
 DROP TABLE IF EXISTS acudientes;
 DROP TABLE IF EXISTS registros_disciplinarios;
 DROP TABLE IF EXISTS estudiantes;
+DROP TABLE IF EXISTS password_reset_requests;
+DROP TABLE IF EXISTS password_reset_tokens;
 DROP TABLE IF EXISTS docentes;
 
 CREATE TABLE docentes (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    usuario VARCHAR(50) NOT NULL UNIQUE,
+    usuario VARCHAR(254) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
     nombre VARCHAR(100) NOT NULL,
     apellido VARCHAR(100) NOT NULL DEFAULT 'Docente',
     rol VARCHAR(20) NOT NULL DEFAULT 'docente',
-    correo VARCHAR(100) DEFAULT NULL,
+    correo VARCHAR(254) DEFAULT NULL,
+    telefono VARCHAR(30) DEFAULT NULL,
     pregunta_seguridad VARCHAR(80) DEFAULT NULL,
     respuesta_seguridad_hash VARCHAR(255) DEFAULT NULL,
     activo TINYINT(1) NOT NULL DEFAULT 1,
     fecha_registro TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE password_reset_tokens (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    docente_id INT NOT NULL,
+    token_hash CHAR(64) NOT NULL,
+    expires_at DATETIME NOT NULL,
+    used_at DATETIME NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_password_reset_token_hash (token_hash),
+    KEY idx_password_reset_docente (docente_id),
+    KEY idx_password_reset_expiry (expires_at),
+    CONSTRAINT fk_password_reset_docente
+        FOREIGN KEY (docente_id) REFERENCES docentes(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE password_reset_requests (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    email_hash CHAR(64) NOT NULL,
+    ip_hash CHAR(64) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_password_reset_request_email_created (email_hash, created_at),
+    KEY idx_password_reset_request_ip_created (ip_hash, created_at)
 ) ENGINE=InnoDB;
 
 CREATE TABLE estudiantes (

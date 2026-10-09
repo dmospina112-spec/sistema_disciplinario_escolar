@@ -57,6 +57,7 @@ async function postAction(action, payload) {
   const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
   const response = await fetch(`${API_ENDPOINT}?action=${encodeURIComponent(action)}`, {
     method: 'POST',
+    credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
     body: JSON.stringify(payload),
   });
@@ -241,8 +242,8 @@ function cerrarSesion() {
       const forms = document.querySelectorAll('form');
       forms.forEach((form) => form.reset());
       mensajeError?.classList.add('d-none');
-      hideRecoveryMessage();
-      clearRecoveryVerificationState();
+      if (typeof hideRecoveryMessage === 'function') hideRecoveryMessage();
+      if (typeof clearRecoveryVerificationState === 'function') clearRecoveryVerificationState();
       toggleLoginMode('login');
     });
 }

@@ -876,6 +876,7 @@ function validateDocenteInput(mysqli $conn, array $data, bool $allowAdminRole, b
         'apellido' => $apellido,
         'usuario' => $usuario,
         'correo' => $correo,
+        'telefono' => $telefono,
         'contrasena' => $contrasena,
         'rol' => $rolSolicitado,
         'activo' => $activo ? 1 : 0,

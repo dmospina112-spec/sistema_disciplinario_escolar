@@ -109,6 +109,7 @@ async function requestAdminUsers(action, method = 'GET', payload = null, query =
     credentials: 'same-origin',
     headers: {
       'Content-Type': 'application/json',
+      'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || '',
       'Cache-Control': 'no-store, no-cache, max-age=0',
       Pragma: 'no-cache',
     },
@@ -523,6 +524,8 @@ function updateAdminFormMode() {
       ? 'Opcional al editar. Si la dejas vacia, se conserva la contraseña actual.'
       : 'Obligatoria al crear. Debe tener al menos 10 caracteres, mayúscula, minúscula y número.';
   }
+}
+
 function setAdminUserSubmitState(isSubmitting, isEditing) {
   if (adminUsuariosSubmitBtn) {
     adminUsuariosSubmitBtn.disabled = isSubmitting || isEditing;

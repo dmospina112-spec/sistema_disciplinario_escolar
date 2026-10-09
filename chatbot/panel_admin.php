@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/app/backend/session.php';
+require_once dirname(__DIR__) . '/app/backend/password_reset.php';
 ensureAppSessionStarted();
 
 $authUser = $_SESSION['auth_user'] ?? null;
@@ -43,6 +44,7 @@ $heroLogoVersion = $assetVersion(__DIR__ . '/img/Logo-hero-contrast-v3.png');
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <meta name="csrf-token" content="<?php echo htmlspecialchars(getCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
   <meta http-equiv="Pragma" content="no-cache">

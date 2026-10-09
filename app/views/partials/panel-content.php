@@ -10,7 +10,7 @@
           </p>
         </div>
         <div class="d-flex gap-2 flex-wrap">
-        <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#changePasswordModal">Cambiar contraseña</button>
+        <button type="button" class="btn btn-outline-primary btn-sm change-password-trigger" data-bs-toggle="modal" data-bs-target="#changePasswordModal">Cambiar contraseña</button>
         <button
           type="button"
           class="btn btn-sm admin-logout-btn"
@@ -546,7 +546,7 @@
     </section>
   </div>
   <div class="modal fade" id="changePasswordModal" tabindex="-1" aria-labelledby="changePasswordTitle" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable"><div class="modal-content">
       <form id="changePasswordForm" novalidate>
         <div class="modal-header"><h2 class="modal-title fs-5" id="changePasswordTitle">Cambiar contraseña</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
         <div class="modal-body">
