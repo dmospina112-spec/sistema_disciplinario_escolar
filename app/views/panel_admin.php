@@ -294,10 +294,6 @@ $heroLogoVersion = $assetVersion($projectRoot . '/frontend/img/Logo-comportate-w
       <button class="close-btn" id="chatbot-close" aria-label="Cerrar chat" title="Cerrar (Esc)">✖</button>
     </div>
     <div id="chatbot-messages" aria-live="polite" aria-label="Historial de conversación"></div>
-    <div id="chatbot-input-area">
-      <input type="text" id="chatbot-input" placeholder="Escribe tu mensaje..." aria-label="Campo de entrada de mensajes">
-      <button id="chatbot-send" title="Enviar mensaje (Enter)">Enviar</button>
-    </div>
   </div>
   <script src="frontend/chatbot/chatbot.js?v=<?php echo htmlspecialchars($chatbotJsVersion, ENT_QUOTES, 'UTF-8'); ?>" defer></script>
 </body>

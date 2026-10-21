@@ -135,7 +135,20 @@ $checks[] = [
     'value' => file_exists(__DIR__ . '/js/estudiantes.js') ? 'Existe' : 'No existe',
 ];
 
-$requiredFolders = ['js', 'styles', 'chatbot', 'img'];
+$sharedChatbotRoot = dirname(__DIR__) . '/frontend/chatbot';
+$sharedChatbotFiles = [
+    'chatbot.js' => $sharedChatbotRoot . '/chatbot.js',
+    'chatbot.css' => $sharedChatbotRoot . '/chatbot.css',
+];
+foreach ($sharedChatbotFiles as $fileName => $filePath) {
+    $checks[] = [
+        'label' => "Recurso compartido {$fileName}",
+        'ok' => file_exists($filePath),
+        'value' => file_exists($filePath) ? 'Existe' : 'No existe',
+    ];
+}
+
+$requiredFolders = ['js', 'styles', 'img'];
 $missingFolders = array_values(array_filter($requiredFolders, static fn($folder) => !is_dir(__DIR__ . '/' . $folder)));
 
 $checks[] = [

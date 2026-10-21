@@ -32,8 +32,9 @@ $assetVersion = static function (string $path, string $suffix = ''): string {
     return substr($hash, 0, 12) . $suffix;
 };
 
-$chatbotCssVersion = $assetVersion(__DIR__ . '/chatbot/chatbot.css');
-$chatbotJsVersion = $assetVersion(__DIR__ . '/chatbot/chatbot.js', '-20260416');
+$chatbotAssetRoot = dirname(__DIR__) . '/frontend/chatbot';
+$chatbotCssVersion = $assetVersion($chatbotAssetRoot . '/chatbot.css');
+$chatbotJsVersion = $assetVersion($chatbotAssetRoot . '/chatbot.js', '-20260416');
 $estudiantesJsVersion = $assetVersion(__DIR__ . '/js/estudiantes.js');
 $stylesVersion = $assetVersion(__DIR__ . '/styles/styles.css', '-logout-red-20260514');
 $scriptJsVersion = $assetVersion(__DIR__ . '/js/script.js');
@@ -55,7 +56,7 @@ $heroLogoVersion = $assetVersion(__DIR__ . '/img/Logo-hero-contrast-v3.png');
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="styles/styles.css?v=<?php echo htmlspecialchars($stylesVersion, ENT_QUOTES, 'UTF-8'); ?>">
-  <link rel="stylesheet" href="chatbot/chatbot.css?v=<?php echo htmlspecialchars($chatbotCssVersion, ENT_QUOTES, 'UTF-8'); ?>">
+  <link rel="stylesheet" href="../frontend/chatbot/chatbot.css?v=<?php echo htmlspecialchars($chatbotCssVersion, ENT_QUOTES, 'UTF-8'); ?>">
 </head>
 <body class="site-body admin-panel-page">
   <script>
@@ -287,11 +288,7 @@ $heroLogoVersion = $assetVersion(__DIR__ . '/img/Logo-hero-contrast-v3.png');
       <button class="close-btn" id="chatbot-close" aria-label="Cerrar chat" title="Cerrar (Esc)">✖</button>
     </div>
     <div id="chatbot-messages" aria-live="polite" aria-label="Historial de conversación"></div>
-    <div id="chatbot-input-area">
-      <input type="text" id="chatbot-input" placeholder="Escribe tu mensaje..." aria-label="Campo de entrada de mensajes">
-      <button id="chatbot-send" title="Enviar mensaje (Enter)">Enviar</button>
-    </div>
   </div>
-  <script src="chatbot/chatbot.js?v=<?php echo htmlspecialchars($chatbotJsVersion, ENT_QUOTES, 'UTF-8'); ?>" defer></script>
+  <script src="../frontend/chatbot/chatbot.js?v=<?php echo htmlspecialchars($chatbotJsVersion, ENT_QUOTES, 'UTF-8'); ?>" defer></script>
 </body>
 </html>

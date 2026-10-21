@@ -4,10 +4,8 @@
   const header = document.getElementById('chatbot-header');
   const closeBtn = document.getElementById('chatbot-close');
   const messagesEl = document.getElementById('chatbot-messages');
-  const inputEl = document.getElementById('chatbot-input');
-  const sendBtn = document.getElementById('chatbot-send');
 
-  if (!bubble || !windowEl || !messagesEl || !inputEl || !sendBtn || !closeBtn || !header) {
+  if (!bubble || !windowEl || !messagesEl || !closeBtn || !header) {
     return;
   }
 
@@ -26,6 +24,16 @@
       question: '¿Cómo envío el correo al acudiente?',
       answer:
         'En la etapa "Acudiente" revisa el nombre, parentesco, teléfono y correo del acudiente asociado al estudiante. Después verifica el asunto y el contenido del mensaje, y luego usa la opción de envío'
+    },
+    {
+      question: '¿Cómo recupero mi contraseña?',
+      answer:
+        'En la pantalla de inicio selecciona "¿Olvidaste tu contraseña?", escribe el correo registrado y pulsa "Enviar enlace". Revisa tu correo y la carpeta de spam, abre el enlace temporal y define una nueva contraseña. El enlace vence en 30 minutos.'
+    },
+    {
+      question: '¿Cómo cambio mi contraseña?',
+      answer:
+        'Desde tu panel abre "Cambiar contraseña", escribe tu contraseña actual y una nueva clave, confírmala y guarda. La nueva contraseña debe tener mínimo 10 caracteres e incluir mayúscula, minúscula y número.'
     },
     {
       question: '¿Cómo funcionan las faltas tipo 1, 2 y 3?',
@@ -47,7 +55,7 @@
 
   const quickActions = predefinedQuestions
     .filter((entry) => !entry.role || entry.role === role)
-    .slice(0, 5)
+    .slice(0, 6)
     .map((entry) => entry.question);
 
   const faqEntries = [
@@ -118,9 +126,14 @@
         'Como administrador puedes abrir "Administrar usuarios", crear cuentas, editar datos, cambiar rol entre docente y administrador, y activar o desactivar accesos del sistema.'
     },
     {
-      keywords: ['recuperar contrasena', 'olvide mi contrasena', 'pregunta de seguridad', 'recuperar contraseña', 'olvide mi contraseña'],
+      keywords: ['recuperar contrasena', 'olvide mi contrasena', 'restablecer contrasena', 'enlace de recuperacion', 'pregunta de seguridad'],
       answer:
-        'En la pantalla de inicio existe el flujo "¿Olvidaste tu contraseña?". El usuario debe consultar su pregunta de seguridad, responderla correctamente y definir una nueva clave.'
+        'En la pantalla de inicio selecciona "¿Olvidaste tu contraseña?", escribe el correo registrado y pulsa "Enviar enlace". Revisa tu correo y la carpeta de spam, abre el enlace temporal y define una nueva contraseña. El enlace vence en 30 minutos.'
+    },
+    {
+      keywords: ['cambiar contrasena', 'nueva contrasena', 'clave actual'],
+      answer:
+        'Desde tu panel abre "Cambiar contraseña", escribe tu contraseña actual y una nueva clave, confírmala y guarda. La nueva contraseña debe tener mínimo 10 caracteres e incluir mayúscula, minúscula y número.'
     },
     {
       keywords: ['cerrar sesion', 'salir'],
@@ -288,6 +301,10 @@
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
+  function clearMessages() {
+    messagesEl.innerHTML = '';
+  }
+
   function appendMessage(type, text, meta = '') {
     const wrapper = document.createElement('div');
     wrapper.className = `chatbot-message ${type}`;
@@ -311,15 +328,22 @@
   function appendQuickActions() {
     const wrap = document.createElement('div');
     wrap.className = 'chatbot-quick-actions';
+    wrap.setAttribute('aria-label', 'Preguntas sugeridas');
+
+    const title = document.createElement('p');
+    title.className = 'chatbot-suggestions-title';
+    title.textContent = 'Preguntas sugeridas';
+    wrap.appendChild(title);
 
     quickActions.forEach((label) => {
       const chip = document.createElement('button');
       chip.type = 'button';
       chip.className = 'chatbot-chip';
       chip.textContent = label;
-      chip.addEventListener('click', () => {
-        inputEl.value = label;
-        handleSend();
+      chip.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        sendMessage(label);
       });
       wrap.appendChild(chip);
     });
@@ -362,25 +386,32 @@
 
   function openChat() {
     setOpenState(true);
-    window.setTimeout(() => inputEl.focus(), 80);
   }
 
   function closeChat() {
     setOpenState(false);
   }
 
-  function handleSend() {
-    const message = inputEl.value.trim();
+  let responseSequence = 0;
+
+  function sendMessage(rawMessage) {
+    const message = String(rawMessage || '').trim();
     if (!message) {
       return;
     }
 
+    const currentSequence = ++responseSequence;
+    clearMessages();
     appendMessage('user', message, 'Tú');
-    inputEl.value = '';
 
     window.setTimeout(() => {
+      if (currentSequence !== responseSequence) {
+        return;
+      }
+
       const reply = resolveBotReply(message);
       appendMessage('bot', reply, 'Asistente');
+      appendQuickActions();
       saveState(true);
     }, 180);
   }
@@ -407,15 +438,6 @@
     windowEl.addEventListener('click', (event) => {
       if (event.target instanceof HTMLElement && event.target.id === 'chatbot-close') {
         closeChat();
-      }
-    });
-
-    sendBtn.addEventListener('click', handleSend);
-
-    inputEl.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' && !event.shiftKey) {
-        event.preventDefault();
-        handleSend();
       }
     });
 

@@ -2,6 +2,7 @@
 .env.local
 /vendor/
 storage/backups/
+storage/archive/
 *.bat
 reparar_mysql_xampp.bat
 scripts/

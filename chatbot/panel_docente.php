@@ -20,8 +20,9 @@ header('Expires: 0');
 header_remove('ETag');
 header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
 
-$chatbotCssVersion = (string) md5_file(__DIR__ . '/chatbot/chatbot.css');
-$chatbotJsVersion = (string) md5_file(__DIR__ . '/chatbot/chatbot.js');
+$chatbotAssetRoot = dirname(__DIR__) . '/frontend/chatbot';
+$chatbotCssVersion = (string) md5_file($chatbotAssetRoot . '/chatbot.css');
+$chatbotJsVersion = (string) md5_file($chatbotAssetRoot . '/chatbot.js');
 $estudiantesJsVersion = (string) md5_file(__DIR__ . '/js/estudiantes.js');
 $stylesVersion = (string) md5_file(__DIR__ . '/styles/styles.css');
 $scriptJsVersion = (string) md5_file(__DIR__ . '/js/script.js');
@@ -41,7 +42,7 @@ $scriptJsVersion = (string) md5_file(__DIR__ . '/js/script.js');
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="styles/styles.css?v=<?php echo htmlspecialchars($stylesVersion, ENT_QUOTES, 'UTF-8'); ?>">
-  <link rel="stylesheet" href="chatbot/chatbot.css?v=<?php echo htmlspecialchars($chatbotCssVersion, ENT_QUOTES, 'UTF-8'); ?>">
+  <link rel="stylesheet" href="../frontend/chatbot/chatbot.css?v=<?php echo htmlspecialchars($chatbotCssVersion, ENT_QUOTES, 'UTF-8'); ?>">
 </head>
 <body class="site-body">
   <script>
@@ -96,11 +97,7 @@ $scriptJsVersion = (string) md5_file(__DIR__ . '/js/script.js');
       <button class="close-btn" id="chatbot-close" aria-label="Cerrar chat" title="Cerrar (Esc)">✖</button>
     </div>
     <div id="chatbot-messages" aria-live="polite" aria-label="Historial de conversación"></div>
-    <div id="chatbot-input-area">
-      <input type="text" id="chatbot-input" placeholder="Escribe tu mensaje..." aria-label="Campo de entrada de mensajes">
-      <button id="chatbot-send" title="Enviar mensaje (Enter)">Enviar</button>
-    </div>
   </div>
-  <script src="chatbot/chatbot.js?v=<?php echo htmlspecialchars($chatbotJsVersion, ENT_QUOTES, 'UTF-8'); ?>" defer></script>
+  <script src="../frontend/chatbot/chatbot.js?v=<?php echo htmlspecialchars($chatbotJsVersion, ENT_QUOTES, 'UTF-8'); ?>" defer></script>
 </body>
 </html>
