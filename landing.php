@@ -15,6 +15,8 @@ try {
 $zone = new DateTimeZone('America/Bogota');
 $today = new DateTimeImmutable('now', $zone);
 $promotionIsActive = in_array((int) $today->format('n'), [1, 2], true);
+$adminContactEmail = trim((string) (getenv('ADMIN_CONTACT_EMAIL') ?: 'comportateweb@gmail.com'));
+$adminContactPhone = trim((string) (getenv('ADMIN_CONTACT_PHONE') ?: '1212121212'));
 $csrfToken = bin2hex(random_bytes(32));
 $_SESSION['comportate_contact_csrf'] = $csrfToken;
 $_SESSION['comportate_contact_started'] = time();
@@ -91,6 +93,25 @@ function landingEscape(string $value): string
       <div class="hero-bottom container"><span>Hecha para acompañar la labor docente</span><span class="hero-bottom-line"></span><span>Organización · Convivencia · Comunicación</span></div>
     </section>
 
+    <section class="trial-banner section-pad" id="prueba-gratuita">
+      <div class="container trial-banner-grid">
+        <div>
+          <span class="eyebrow eyebrow-dark">Empieza hoy</span>
+          <h2>¡PRUEBA COMPORTATE GRATIS DURANTE 14 DÍAS!</h2>
+          <p>Conoce todas las herramientas que tenemos para facilitar la gestión disciplinaria y fortalecer la comunicación entre docentes y acudientes.</p>
+        </div>
+        <div class="trial-banner-side">
+          <ul class="trial-benefits">
+            <li>14 días de acceso gratuito.</li>
+            <li>Conoce las funcionalidades disponibles.</li>
+            <li>Administra tus procesos disciplinarios.</li>
+            <li>Mejora la comunicación con los acudientes.</li>
+          </ul>
+          <a class="button button-primary" href="#contacto" data-plan="prueba_gratuita">COMENZAR PRUEBA GRATUITA <span aria-hidden="true">→</span></a>
+        </div>
+      </div>
+    </section>
+
     <section class="intro-section section-pad" id="nosotros">
       <div class="container intro-grid">
         <div class="section-heading">
@@ -135,6 +156,13 @@ function landingEscape(string $value): string
       <div class="container">
         <div class="plans-heading"><div><span class="eyebrow eyebrow-dark">Planes sencillos y claros</span><h2>Elige cómo quieres comenzar.</h2></div><p>Selecciona un plan para solicitar información. La selección expresa tu interés y no genera un cobro ni una contratación automática.</p></div>
         <div class="plans-grid">
+          <article class="plan-card plan-card-trial">
+            <div class="plan-top"><span class="plan-index">PLAN 00</span><span class="plan-icon" aria-hidden="true">✦</span></div>
+            <h3>Prueba gratuita de 14 días</h3><p class="plan-desc">Acceso gratuito para conocer las funcionalidades de COMPORTATE.</p>
+            <div class="plan-price"><strong>GRATIS</strong><span>14 días</span></div>
+            <ul class="plan-benefits"><li>Acceso sin costo durante 14 días</li><li>Sin cobro automático</li><li>Conserva tu cuenta y tus datos</li></ul>
+            <button class="button button-featured plan-select" type="button" data-plan="prueba_gratuita">Comenzar prueba gratuita <span aria-hidden="true">→</span></button>
+          </article>
           <article class="plan-card">
             <div class="plan-top"><span class="plan-index">PLAN 01</span><span class="plan-icon" aria-hidden="true">◷</span></div>
             <h3>Suscripción mensual</h3><p class="plan-desc">Acceso a la plataforma con una mensualidad.</p>
@@ -179,9 +207,9 @@ function landingEscape(string $value): string
 
     <section class="contact-section section-pad" id="contacto">
       <div class="container contact-grid">
-        <div class="contact-copy"><span class="eyebrow eyebrow-light">Hablemos de tu proceso</span><h2>¿Quieres conocer más sobre COMPORTATE?</h2><p>Este formulario solo envía una solicitud de información; no crea cuentas ni inicia sesión. La administradora revisará tu solicitud y se pondrá en contacto contigo.</p>
-          <div class="contact-detail"><span class="contact-detail-icon">✉</span><div><small>Correo de contacto y soporte</small><a href="mailto:comportateweb@gmail.com">comportateweb@gmail.com</a></div></div>
-          <div class="contact-detail"><span class="contact-detail-icon">☎</span><div><small>Teléfono</small><a href="tel:1212121212">1212121212</a></div></div>
+        <div class="contact-copy"><span class="eyebrow eyebrow-light">Hablemos de tu proceso</span><h2>¿Quieres conocer más sobre COMPORTATE?</h2><p>Selecciona la prueba gratuita para crear tu cuenta docente. Para los planes pagos, este formulario envía una solicitud de información y la administradora se pondrá en contacto contigo.</p>
+          <div class="contact-detail"><span class="contact-detail-icon">✉</span><div><small>Correo de contacto y soporte</small><a href="mailto:<?= landingEscape($adminContactEmail) ?>"><?= landingEscape($adminContactEmail) ?></a></div></div>
+          <div class="contact-detail"><span class="contact-detail-icon">☎</span><div><small>Teléfono</small><a href="tel:<?= landingEscape($adminContactPhone) ?>"><?= landingEscape($adminContactPhone) ?></a></div></div>
         </div>
         <div class="contact-form-wrap" id="formulario-contacto">
           <div class="form-heading"><span class="form-step">Tu solicitud</span><h3>Déjanos tus datos</h3><p>Los campos marcados con * son obligatorios.</p></div>
@@ -197,16 +225,24 @@ function landingEscape(string $value): string
             <div class="field"><label for="plan">Plan de interés <span>*</span></label>
               <select id="plan" name="plan" required>
                 <option value="">Selecciona una opción</option>
+                <option value="prueba_gratuita">Prueba gratuita de 14 días — GRATIS</option>
                 <option value="mensual">Suscripción mensual — $15.000 COP</option>
                 <?php if ($promotionIsActive): ?><option value="promocion">Promoción de temporada — $12.000 COP el primer mes</option><?php endif; ?>
                 <option value="anual">Suscripción anual “Pague 10, lleve 12” — $150.000 COP</option>
                 <option value="todos">Deseo recibir información sobre todos los planes</option>
               </select>
             </div>
-            <div class="field"><label for="message">Mensaje <span>*</span></label><textarea id="message" name="message" rows="4" maxlength="3000" placeholder="Escribe aquí tus preguntas o comentarios" required></textarea></div>
+            <div class="trial-registration-fields" id="trial-registration-fields" hidden>
+              <div class="trial-registration-note">Para activar tu prueba crea la contraseña de tu cuenta. Debe tener mínimo 10 caracteres, con mayúscula, minúscula y número.</div>
+              <div class="form-row">
+                <div class="field"><label for="password">Contraseña <span>*</span></label><input id="password" name="password" type="password" minlength="10" autocomplete="new-password"></div>
+                <div class="field"><label for="password_confirmation">Confirmar contraseña <span>*</span></label><input id="password_confirmation" name="password_confirmation" type="password" minlength="10" autocomplete="new-password"></div>
+              </div>
+            </div>
+            <div class="field"><label for="message">Mensaje <span class="message-required-mark">*</span></label><textarea id="message" name="message" rows="4" maxlength="3000" placeholder="Escribe aquí tus preguntas o comentarios" required></textarea></div>
             <div class="privacy-check"><input type="checkbox" id="privacy" name="privacy" value="1" required><label for="privacy">Autorizo el tratamiento de mis datos personales para atender esta solicitud, conforme a la <a href="politica_privacidad.php" target="_blank" rel="noopener">Política de tratamiento de datos personales</a>. <span>*</span></label></div>
             <button type="submit" class="button button-submit"><span class="submit-label">ENVIAR MENSAJE</span><span class="submit-arrow" aria-hidden="true">→</span></button>
-            <p class="form-privacy-note">Usaremos tus datos para responder esta solicitud. El formulario no guarda la información en una base de datos.</p>
+            <p class="form-privacy-note">Usaremos tus datos para crear la cuenta de prueba o responder esta solicitud. Los pagos no se realizan en línea.</p>
           </form>
         </div>
       </div>

@@ -2,7 +2,11 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/app/backend/config.php';
+require_once __DIR__ . '/app/backend/db.php';
+require_once __DIR__ . '/app/backend/bootstrap_db.php';
 require_once __DIR__ . '/app/backend/session.php';
+require_once __DIR__ . '/app/backend/password_reset.php';
+require_once __DIR__ . '/app/backend/subscriptions.php';
 require_once __DIR__ . '/app/backend/contact-mailer.php';
 
 ini_set('display_errors', '0');
@@ -49,6 +53,8 @@ $phone = trim((string) ($_POST['phone'] ?? ''));
 $email = trim((string) ($_POST['email'] ?? ''));
 $plan = trim((string) ($_POST['plan'] ?? ''));
 $message = trim((string) ($_POST['message'] ?? ''));
+$password = (string) ($_POST['password'] ?? '');
+$passwordConfirmation = (string) ($_POST['password_confirmation'] ?? '');
 $acceptedPrivacy = (string) ($_POST['privacy'] ?? '') === '1';
 $promotionActive = in_array((int) (new DateTimeImmutable('now', new DateTimeZone('America/Bogota')))->format('n'), [1, 2], true);
 $plans = [
@@ -56,21 +62,82 @@ $plans = [
     'anual' => 'Suscripción anual “Pague 10, lleve 12” — $150.000 COP por 12 meses',
     'todos' => 'Deseo recibir información sobre todos los planes',
 ];
+$plans['prueba_gratuita'] = 'Prueba gratuita de 14 días - GRATIS';
 if ($promotionActive) $plans['promocion'] = 'Promoción de temporada — $12.000 COP el primer mes; siguientes mensualidades a $15.000 COP';
 
 $hasHeaderBreak = static fn(string $value): bool => preg_match('/[\r\n]/', $value) === 1;
+$isTrialRegistration = $plan === 'prueba_gratuita';
 if ($name === '' || mb_strlen($name, 'UTF-8') > 120 || $hasHeaderBreak($name)
     || $phone === '' || mb_strlen($phone, 'UTF-8') > 40 || $hasHeaderBreak($phone)
     || !filter_var($email, FILTER_VALIDATE_EMAIL) || mb_strlen($email, 'UTF-8') > 254 || $hasHeaderBreak($email)
-    || !isset($plans[$plan]) || $message === '' || mb_strlen($message, 'UTF-8') > 3000 || !$acceptedPrivacy) {
+    || !isset($plans[$plan]) || (!$isTrialRegistration && $message === '') || mb_strlen($message, 'UTF-8') > 3000 || !$acceptedPrivacy) {
     contactResponse(422, 'Revisa los campos obligatorios, el formato de correo y la autorización de tratamiento de datos.');
+}
+
+if ($isTrialRegistration) {
+    if (!isStrongPassword($password)) {
+        contactResponse(422, 'Para comenzar la prueba, la contraseña debe tener mínimo 10 caracteres e incluir mayúscula, minúscula y número.');
+    }
+    if ($password !== $passwordConfirmation) {
+        contactResponse(422, 'La confirmación de la contraseña no coincide.');
+    }
 }
 
 $safeName = preg_replace('/[\x00-\x1F\x7F]/u', ' ', $name) ?? $name;
 $safePhone = preg_replace('/[\x00-\x1F\x7F]/u', ' ', $phone) ?? $phone;
 $safeMessage = preg_replace('/\x00/', '', $message) ?? $message;
 $receivedAt = (new DateTimeImmutable('now', new DateTimeZone('America/Bogota')))->format('Y-m-d H:i:s T');
-$contactRecipient = 'comportateweb@gmail.com';
+$contactRecipient = trim((string) (getenv('ADMIN_CONTACT_EMAIL') ?: 'comportateweb@gmail.com'));
+
+if ($isTrialRegistration) {
+    $nameParts = preg_split('/\s+/', $safeName) ?: [];
+    $nameParts = array_values(array_filter($nameParts, static fn(string $part): bool => $part !== ''));
+    $nameCount = count($nameParts);
+    $splitIndex = max(1, (int) ceil($nameCount / 2));
+    $firstName = implode(' ', array_slice($nameParts, 0, $splitIndex));
+    $lastName = implode(' ', array_slice($nameParts, $splitIndex));
+    if ($lastName === '') {
+        $lastName = 'Docente';
+    }
+
+    $conn = null;
+    try {
+        ensureDatabaseReady();
+        $conn = conectarDB();
+        $conn->begin_transaction();
+        $docenteId = createDocenteWithTrial($conn, [
+            'email' => strtolower($email),
+            'nombre' => $firstName,
+            'apellido' => $lastName,
+            'telefono' => $safePhone,
+            'password' => $password,
+        ]);
+        $conn->commit();
+    } catch (Throwable $exception) {
+        if ($conn instanceof mysqli) {
+            $conn->rollback();
+        }
+        $errorMessage = $exception->getMessage();
+        if (stripos($errorMessage, 'ya est') !== false || stripos($errorMessage, 'registrado') !== false) {
+            contactResponse(409, 'El correo electrónico ya está registrado. Inicia sesión o contacta a la administración si necesitas ayuda.');
+        }
+        error_log('COMPORTATE: falló el registro de prueba gratuita.');
+        contactResponse(500, 'No fue posible crear la cuenta de prueba. Inténtalo nuevamente más tarde.');
+    }
+
+    $_SESSION['comportate_contact_last_sent'] = time();
+    try {
+        comportateSendSmtp($contactRecipient, $email, 'Nuevo registro de prueba gratuita - COMPORTATE', "Registro creado para {$safeName}. Docente ID: {$docenteId}. Contacto: {$safePhone}");
+    } catch (Throwable $mailError) {
+        error_log('COMPORTATE: el aviso de registro de prueba no pudo enviarse.');
+    }
+    try {
+        comportateSendSmtp($email, $contactRecipient, 'Tu prueba gratuita de COMPORTATE está activa', "Hola {$safeName},\n\nTu cuenta docente fue creada correctamente y tienes 14 días de prueba gratuita. Ingresa con tu correo y la contraseña que elegiste.\n\nCOMPORTATE");
+    } catch (Throwable $confirmationError) {
+        error_log('COMPORTATE: la confirmación del registro de prueba no pudo enviarse.');
+    }
+    contactResponse(201, '¡Tu cuenta fue creada! La prueba gratuita de 14 días está activa. Ya puedes ingresar con el mismo correo y contraseña.');
+}
 $contactBody = "Nueva solicitud de información — COMPORTATE\n\n"
     . "Nombre completo: {$safeName}\nTeléfono: {$safePhone}\nCorreo electrónico: {$email}\n"
     . "Plan de interés: {$plans[$plan]}\nFecha de recepción: {$receivedAt}\n\nMensaje:\n{$safeMessage}\n\n"
@@ -79,7 +146,8 @@ $contactBody = "Nueva solicitud de información — COMPORTATE\n\n"
 try {
     comportateSendSmtp($contactRecipient, $email, 'Nueva solicitud de información — COMPORTATE', $contactBody);
     $_SESSION['comportate_contact_last_sent'] = time();
-    $confirmation = "Hola {$safeName},\n\nGracias por contactar a COMPORTATE. Recibimos tu solicitud de información sobre: {$plans[$plan]}. Este formulario no crea una cuenta de usuario. La administradora revisará tu solicitud y se pondrá en contacto contigo.\n\nCOMPORTATE\ncomportateweb@gmail.com\n1212121212";
+    $contactPhone = trim((string) (getenv('ADMIN_CONTACT_PHONE') ?: '1212121212'));
+    $confirmation = "Hola {$safeName},\n\nGracias por contactar a COMPORTATE. Recibimos tu solicitud de información sobre: {$plans[$plan]}. La administradora revisará tu solicitud y se pondrá en contacto contigo.\n\nCOMPORTATE\n{$contactRecipient}\n{$contactPhone}";
     try {
         comportateSendSmtp($email, $contactRecipient, 'Recibimos tu solicitud — COMPORTATE', $confirmation);
     } catch (Throwable $confirmationError) {

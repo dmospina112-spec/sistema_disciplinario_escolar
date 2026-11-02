@@ -281,6 +281,10 @@ async function request(action, method = 'GET', payload = null, query = {}) {
   const body = await response.json().catch(() => ({}));
 
   if (!response.ok || body.success === false) {
+    if (body.subscription_required) {
+      window.location.href = 'panel_docente.php';
+      throw new Error(body.error || 'Tu periodo de acceso finalizó.');
+    }
     const message = body.error || `Error HTTP ${response.status}`;
     throw new Error(message);
   }

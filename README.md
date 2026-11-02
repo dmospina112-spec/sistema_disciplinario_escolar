@@ -134,3 +134,11 @@ Ruta alternativa:
 - La inicialización automática de la aplicación verifica y crea las columnas de contacto y las tablas auxiliares de recuperación (`password_reset_tokens` y `password_reset_requests`) sin borrar cuentas existentes. Para instalaciones nuevas, `database/database.sql` también incluye toda la estructura.
 - Copia `.env.example` a `.env` si aún no existe y configura en `.env.local` `APP_BASE_URL` y un `APP_SECRET` privado de al menos 32 caracteres; conserva la configuración SMTP en `.env`. En AMPPS, selecciona `app_educativa_recuperada` en phpMyAdmin, importa el script SQL y configura SMTP con credenciales autorizadas. Para Gmail usa una contraseña de aplicación. Mantén `.env` fuera del repositorio.
 - El proyecto reutiliza su transporte SMTP existente. La entrega real depende de la cuenta y el servidor SMTP; no se ha afirmado que el correo llegue ni se ha probado con una cuenta real.
+
+## Prueba gratuita y suscripciones COMPORTATE
+- El formulario existente de **Plan de interés** incluye **Prueba gratuita de 14 días**. Al seleccionarla, solicita una contraseña segura, crea una única cuenta docente con el correo como usuario y activa una prueba individual desde la fecha y hora del servidor.
+- Las cuentas docentes creadas antes de esta funcionalidad no reciben una prueba retroactiva y conservan su acceso si no tienen una suscripción registrada.
+- Al vencer una prueba o suscripción, el servidor cambia su estado y bloquea los módulos privados del docente. La cuenta, estudiantes, acudientes, historiales y reportes se conservan.
+- El administrador dispone de **Gestión de suscripciones** para listar y filtrar docentes, registrar pagos pendientes o verificados, verificar comprobantes, activar/renovar la cuenta existente y consultar el historial.
+- La migración aditiva es `database/migrations/20261102_subscriptions.sql`. La inicialización automática crea las tablas nuevas si no existen: `subscription_plans`, `payments`, `docente_suscripciones` y `subscription_audit_log`.
+- El contacto administrativo reutilizado por el sistema es `comportateweb@gmail.com` y `1212121212`, valores que ya estaban visibles en la landing. Pueden sobrescribirse con `ADMIN_CONTACT_EMAIL` y `ADMIN_CONTACT_PHONE` en `.env`; no se implementó pasarela de pagos.

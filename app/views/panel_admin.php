@@ -45,6 +45,7 @@ $estudiantesJsVersion = $assetVersion($projectRoot . '/frontend/js/estudiantes.j
 $stylesVersion = $assetVersion($projectRoot . '/frontend/css/styles.css', '-logout-red-20260514');
 $scriptJsVersion = $assetVersion($projectRoot . '/frontend/js/script.js');
 $adminUsuariosJsVersion = $assetVersion($projectRoot . '/frontend/js/admin-usuarios.js');
+$adminSubscriptionsJsVersion = $assetVersion($projectRoot . '/frontend/js/admin-suscripciones.js');
 $heroLogoVersion = $assetVersion($projectRoot . '/frontend/img/Logo-comportate-white-clean.png');
 ?>
 <!DOCTYPE html>
@@ -89,6 +90,15 @@ $heroLogoVersion = $assetVersion($projectRoot . '/frontend/img/Logo-comportate-w
                 data-bs-target="#adminUsersModal"
               >
                 Administrar usuarios
+              </button>
+              <button
+                type="button"
+                class="btn btn-success admin-hero-btn"
+                id="btnAbrirSuscripcionesAdmin"
+                data-bs-toggle="modal"
+                data-bs-target="#adminSubscriptionsModal"
+              >
+                Gestión de suscripciones
               </button>
             </div>
           </div>
@@ -253,6 +263,56 @@ $heroLogoVersion = $assetVersion($projectRoot . '/frontend/img/Logo-comportate-w
       </div>
     </div>
 
+    <div class="modal fade" id="adminSubscriptionsModal" tabindex="-1" aria-labelledby="adminSubscriptionsModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-fullscreen-lg-down modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <div>
+              <span class="admin-section-kicker">Control comercial y de acceso</span>
+              <h2 class="modal-title" id="adminSubscriptionsModalLabel">Gestión de suscripciones</h2>
+              <p class="mb-0 text-muted">Registra pagos, verifica comprobantes, activa renovaciones y consulta el historial sin crear otra cuenta.</p>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+          </div>
+          <div class="modal-body">
+            <div id="subscriptionAdminMessage" class="alert d-none" role="alert"></div>
+            <div class="row g-4">
+              <div class="col-12">
+                <div class="d-flex flex-wrap gap-2 align-items-end mb-3">
+                  <div class="flex-grow-1"><label for="subscriptionAdminSearch" class="form-label">Buscar docente</label><input type="search" class="form-control" id="subscriptionAdminSearch" placeholder="Nombre o correo electrónico"></div>
+                  <div><label for="subscriptionAdminFilter" class="form-label">Filtrar</label><select class="form-select" id="subscriptionAdminFilter"><option value="todos">Todos los docentes</option><option value="prueba_activa">Prueba gratuita activa</option><option value="prueba_finalizada">Prueba gratuita finalizada</option><option value="pendiente_pago">Pendientes de pago</option><option value="activas">Suscripciones activas</option><option value="vencidas">Suscripciones vencidas</option><option value="canceladas">Canceladas</option></select></div>
+                  <button type="button" class="btn btn-outline-primary" id="subscriptionAdminRefresh">Actualizar</button>
+                </div>
+                <div class="table-responsive border rounded">
+                  <table class="table table-hover align-middle mb-0 subscription-admin-table">
+                    <thead><tr><th>Docente</th><th>Registro</th><th>Plan</th><th>Inicio</th><th>Vencimiento</th><th>Estado</th><th>Pago</th><th>Acciones</th></tr></thead>
+                    <tbody id="subscriptionAdminTableBody"><tr><td colspan="8" class="text-center text-muted py-4">Abre el módulo para cargar las suscripciones.</td></tr></tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="col-lg-6">
+                <div class="admin-subpanel">
+                  <div class="admin-subpanel-head"><span class="admin-subpanel-kicker">Registro manual</span><h3>Registrar pago</h3><p>Un pago pendiente nunca activa el acceso por sí solo.</p></div>
+                  <form id="subscriptionPaymentForm" novalidate>
+                    <div class="mb-3"><label for="subscriptionPaymentTeacher" class="form-label">Docente</label><select class="form-select" id="subscriptionPaymentTeacher" required><option value="">Selecciona un docente...</option></select></div>
+                    <div class="row g-3"><div class="col-md-6"><label for="subscriptionPaymentPlan" class="form-label">Plan contratado</label><select class="form-select" id="subscriptionPaymentPlan" required><option value="">Cargando planes...</option></select></div><div class="col-md-6"><label for="subscriptionPaymentAmount" class="form-label">Valor recibido</label><input type="number" min="0" step="0.01" class="form-control" id="subscriptionPaymentAmount" required></div></div>
+                    <div class="row g-3 mt-0"><div class="col-md-6"><label for="subscriptionPaymentDate" class="form-label">Fecha del pago</label><input type="date" class="form-control" id="subscriptionPaymentDate" required></div><div class="col-md-6"><label for="subscriptionPaymentMethod" class="form-label">Método de pago</label><input type="text" class="form-control" id="subscriptionPaymentMethod" maxlength="80" placeholder="Transferencia, efectivo..." required></div></div>
+                    <div class="mb-3 mt-3"><label for="subscriptionPaymentReference" class="form-label">Referencia o comprobante</label><input type="text" class="form-control" id="subscriptionPaymentReference" maxlength="120"></div>
+                    <div class="mb-3"><label for="subscriptionPaymentNotes" class="form-label">Observaciones</label><textarea class="form-control" id="subscriptionPaymentNotes" rows="2" maxlength="2000"></textarea></div>
+                    <div class="mb-3"><label for="subscriptionPaymentState" class="form-label">Estado del pago</label><select class="form-select" id="subscriptionPaymentState"><option value="PENDIENTE">Pendiente</option><option value="VERIFICADO">Verificado</option></select></div>
+                    <button type="submit" class="btn btn-primary" id="subscriptionPaymentSubmit">Registrar pago</button>
+                  </form>
+                </div>
+              </div>
+              <div class="col-lg-6">
+                <div class="admin-subpanel h-100"><div class="admin-subpanel-head"><span class="admin-subpanel-kicker">Activación y renovación</span><h3>Suscripción seleccionada</h3><p id="subscriptionSelectedSummary">Selecciona un docente o un pago pendiente en la tabla.</p></div><form id="subscriptionActivationForm" novalidate><input type="hidden" id="subscriptionActivationPaymentId"><div class="mb-3"><label for="subscriptionActivationStart" class="form-label">Fecha de inicio</label><input type="date" class="form-control" id="subscriptionActivationStart" required></div><div class="mb-3"><label for="subscriptionActivationDuration" class="form-label">Duración en días</label><input type="number" min="1" max="3650" class="form-control" id="subscriptionActivationDuration" value="30" required></div><button type="submit" class="btn btn-success" id="subscriptionActivationSubmit" disabled>Activar / renovar suscripción</button></form><hr><h4 class="h6">Historial del docente</h4><div id="subscriptionHistory" class="small text-muted">Sin docente seleccionado.</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <?php include __DIR__ . '/partials/panel-content.php'; ?>
   </main>
 
@@ -286,6 +346,7 @@ $heroLogoVersion = $assetVersion($projectRoot . '/frontend/img/Logo-comportate-w
   <script src="frontend/js/script.js?v=<?php echo htmlspecialchars($scriptJsVersion, ENT_QUOTES, 'UTF-8'); ?>"></script>
   <script src="frontend/js/estudiantes.js?v=<?php echo htmlspecialchars($estudiantesJsVersion, ENT_QUOTES, 'UTF-8'); ?>"></script>
   <script src="frontend/js/admin-usuarios.js?v=<?php echo htmlspecialchars($adminUsuariosJsVersion, ENT_QUOTES, 'UTF-8'); ?>"></script>
+  <script src="frontend/js/admin-suscripciones.js?v=<?php echo htmlspecialchars($adminSubscriptionsJsVersion, ENT_QUOTES, 'UTF-8'); ?>"></script>
 
   <div id="chatbot-bubble" aria-hidden="false" title="Abrir asistente virtual">💬</div>
   <div id="chatbot-window" role="dialog" aria-label="Asistente Virtual">

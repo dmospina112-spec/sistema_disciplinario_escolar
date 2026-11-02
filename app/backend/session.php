@@ -51,6 +51,16 @@ function ensureAppSessionStarted(): void
     }
 
     ini_set('session.gc_maxlifetime', (string) APP_AUTH_IDLE_TIMEOUT);
+    ini_set('session.use_strict_mode', '1');
+    $cookieParams = session_get_cookie_params();
+    session_set_cookie_params([
+        'lifetime' => (int) ($cookieParams['lifetime'] ?? 0),
+        'path' => (string) ($cookieParams['path'] ?? '/'),
+        'domain' => (string) ($cookieParams['domain'] ?? ''),
+        'secure' => (!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off'),
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
     $configuredPath = normalizeSessionSavePath((string) ini_get('session.save_path'));
     if (!isWritableSessionDirectory($configuredPath)) {
         session_save_path(prepareProjectSessionDirectory());

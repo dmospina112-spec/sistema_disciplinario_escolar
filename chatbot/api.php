@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+// La copia histórica del chatbot usa el mismo API central para conservar las
+// validaciones de sesión, roles y suscripciones de la aplicación principal.
+require dirname(__DIR__) . '/app/backend/api.php';
+
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/bootstrap_db.php';
 require_once dirname(__DIR__) . '/app/backend/session.php';

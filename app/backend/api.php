@@ -6,6 +6,7 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/bootstrap_db.php';
 require_once __DIR__ . '/session.php';
 require_once __DIR__ . '/password_reset.php';
+require_once __DIR__ . '/subscriptions.php';
 
 ini_set('display_errors', '0');
 ini_set('html_errors', '0');
@@ -2486,10 +2487,13 @@ function loginDocente(mysqli $conn, array $data): void
     $authUser = buildAuthUserPayload($row);
     storeAuthenticatedUserSession($authUser, true);
 
+    $subscription = subscriptionPayload($conn, (int) ($authUser['id'] ?? 0), (string) ($authUser['rol'] ?? 'docente'));
+
     jsonResponse(200, [
         'success' => true,
         'message' => 'Ingreso exitoso.',
         'data' => $authUser,
+        'subscription' => $subscription,
     ]);
 }
 
@@ -2668,6 +2672,411 @@ function obtenerUsuariosAdmin(mysqli $conn): void
     ]);
 }
 
+function docenteAdminSubscriptionExists(mysqli $conn, int $docenteId): bool
+{
+    $stmt = $conn->prepare('SELECT id FROM docentes WHERE id = ? AND activo = 1 AND LOWER(COALESCE(rol, "docente")) = "docente" LIMIT 1');
+    if (!$stmt) {
+        jsonResponse(500, ['success' => false, 'error' => 'No se pudo validar el docente seleccionado.']);
+    }
+    $stmt->bind_param('i', $docenteId);
+    $stmt->execute();
+    $exists = (bool) ($stmt->get_result()->fetch_assoc());
+    $stmt->close();
+    return $exists;
+}
+
+function buildSubscriptionAdminPayload(mysqli $conn, array $docente, ?array $subscription): array
+{
+    $payment = null;
+    $pendingPayments = [];
+    if ($subscription && (int) ($subscription['pago_id'] ?? 0) > 0) {
+        $paymentStmt = $conn->prepare(
+            'SELECT id, valor_recibido, fecha_pago, metodo_pago, referencia,
+                    observaciones, estado_pago, registrado_por, verificado_por,
+                    verificado_at, subscription_id
+             FROM payments
+             WHERE id = ?
+             LIMIT 1'
+        );
+        if ($paymentStmt) {
+            $paymentId = (int) $subscription['pago_id'];
+            $paymentStmt->bind_param('i', $paymentId);
+            $paymentStmt->execute();
+            $payment = $paymentStmt->get_result()->fetch_assoc() ?: null;
+            $paymentStmt->close();
+        }
+    }
+
+    $pendingStmt = $conn->prepare(
+        'SELECT pay.id, pay.plan_id, p.codigo AS plan_codigo, p.nombre AS plan_nombre,
+                pay.valor_recibido, pay.fecha_pago, pay.metodo_pago, pay.referencia,
+                pay.observaciones, pay.estado_pago
+         FROM payments pay
+         INNER JOIN subscription_plans p ON p.id = pay.plan_id
+         WHERE pay.docente_id = ?
+           AND pay.subscription_id IS NULL
+         ORDER BY pay.created_at DESC, pay.id DESC'
+    );
+    if ($pendingStmt) {
+        $pendingDocenteId = (int) ($docente['id'] ?? 0);
+        $pendingStmt->bind_param('i', $pendingDocenteId);
+        $pendingStmt->execute();
+        $pendingResult = $pendingStmt->get_result();
+        while ($pendingRow = $pendingResult->fetch_assoc()) {
+            $pendingPayments[] = $pendingRow;
+        }
+        $pendingStmt->close();
+    }
+
+    $status = $subscription ? (string) ($subscription['estado'] ?? '') : 'SIN ASIGNAR';
+    $paymentStatus = $subscription ? (string) ($subscription['estado_pago'] ?? '') : 'SIN PAGO';
+    if ($pendingPayments !== [] && !in_array($status, ['ACTIVA', 'PRUEBA ACTIVA'], true)) {
+        $status = 'PENDIENTE DE PAGO';
+        $paymentStatus = (string) ($pendingPayments[0]['estado_pago'] ?? 'PENDIENTE');
+    }
+    return [
+        'docente_id' => (int) ($docente['id'] ?? 0),
+        'nombre_completo' => trim((string) ($docente['nombre'] ?? '') . ' ' . (string) ($docente['apellido'] ?? '')),
+        'usuario' => (string) ($docente['usuario'] ?? ''),
+        'correo' => (string) ($docente['correo'] ?? ''),
+        'fecha_registro' => (string) ($docente['fecha_registro'] ?? ''),
+        'suscripcion_id' => $subscription ? (int) ($subscription['id'] ?? 0) : null,
+        'plan_codigo' => $subscription ? (string) ($subscription['plan_codigo'] ?? '') : '',
+        'plan_nombre' => $subscription ? (string) ($subscription['plan_nombre'] ?? '') : 'Sin suscripción asignada',
+        'tipo_plan' => $subscription ? (string) ($subscription['tipo_plan'] ?? '') : '',
+        'fecha_inicio' => $subscription ? (string) ($subscription['fecha_inicio'] ?? '') : '',
+        'fecha_vencimiento' => $subscription ? (string) ($subscription['fecha_vencimiento'] ?? '') : '',
+        'duracion_dias' => $subscription ? (int) ($subscription['duracion_dias'] ?? 0) : 0,
+        'estado' => $status,
+        'estado_pago' => $paymentStatus,
+        'pago_id' => $payment ? (int) ($payment['id'] ?? 0) : null,
+        'pago' => $payment ? [
+            'id' => (int) ($payment['id'] ?? 0),
+            'valor_recibido' => (string) ($payment['valor_recibido'] ?? '0'),
+            'fecha_pago' => (string) ($payment['fecha_pago'] ?? ''),
+            'metodo_pago' => (string) ($payment['metodo_pago'] ?? ''),
+            'referencia' => (string) ($payment['referencia'] ?? ''),
+            'observaciones' => (string) ($payment['observaciones'] ?? ''),
+            'estado_pago' => (string) ($payment['estado_pago'] ?? ''),
+            'subscription_id' => $payment['subscription_id'] !== null ? (int) $payment['subscription_id'] : null,
+        ] : null,
+        'pagos_pendientes' => $pendingPayments,
+    ];
+}
+
+function obtenerSuscripcionesAdmin(mysqli $conn): void
+{
+    requireAdminAccess();
+    subscriptionExpireDue($conn);
+
+    $search = normalizeText($_GET['buscar'] ?? '');
+    $stmt = $conn->prepare(
+        'SELECT id, usuario, nombre, apellido, correo, fecha_registro
+         FROM docentes
+         WHERE LOWER(COALESCE(rol, "docente")) = "docente"
+           AND activo = 1
+           AND (? = "" OR nombre LIKE CONCAT("%", ?, "%")
+                OR apellido LIKE CONCAT("%", ?, "%")
+                OR usuario LIKE CONCAT("%", ?, "%")
+                OR correo LIKE CONCAT("%", ?, "%"))
+         ORDER BY nombre ASC, apellido ASC, usuario ASC'
+    );
+    if (!$stmt) {
+        jsonResponse(500, ['success' => false, 'error' => 'No se pudo cargar la gestión de suscripciones.']);
+    }
+    $stmt->bind_param('sssss', $search, $search, $search, $search, $search);
+    if (!$stmt->execute()) {
+        $stmt->close();
+        jsonResponse(500, ['success' => false, 'error' => 'No se pudo cargar la gestión de suscripciones.']);
+    }
+    $result = $stmt->get_result();
+    $rows = [];
+    while ($docente = $result->fetch_assoc()) {
+        $rows[] = buildSubscriptionAdminPayload($conn, $docente, subscriptionCurrent($conn, (int) $docente['id']));
+    }
+    $stmt->close();
+
+    $filter = strtolower(normalizeText($_GET['filtro'] ?? 'todos'));
+    $filterMap = [
+        'prueba_activa' => ['PRUEBA ACTIVA'],
+        'prueba_finalizada' => ['PRUEBA FINALIZADA'],
+        'pendiente_pago' => ['PENDIENTE DE PAGO'],
+        'activas' => ['ACTIVA'],
+        'vencidas' => ['VENCIDA'],
+        'canceladas' => ['CANCELADA'],
+    ];
+    if (isset($filterMap[$filter])) {
+        $rows = array_values(array_filter($rows, static fn(array $row): bool => in_array($row['estado'], $filterMap[$filter], true)));
+    }
+
+    jsonResponse(200, [
+        'success' => true,
+        'data' => $rows,
+        'filters' => array_keys($filterMap),
+    ]);
+}
+
+function obtenerPlanesSuscripcion(mysqli $conn): void
+{
+    requireAdminAccess();
+    $result = $conn->query(
+        "SELECT codigo, nombre, precio, duracion_dias
+         FROM subscription_plans
+         WHERE activo = 1 AND codigo <> 'prueba_gratuita'
+         ORDER BY duracion_dias ASC, id ASC"
+    );
+    if (!$result) {
+        jsonResponse(500, ['success' => false, 'error' => 'No se pudieron cargar los planes.']);
+    }
+    $rows = [];
+    while ($row = $result->fetch_assoc()) {
+        $rows[] = [
+            'codigo' => (string) $row['codigo'],
+            'nombre' => (string) $row['nombre'],
+            'precio' => (string) $row['precio'],
+            'duracion_dias' => (int) $row['duracion_dias'],
+        ];
+    }
+    jsonResponse(200, ['success' => true, 'data' => $rows]);
+}
+
+function obtenerHistorialSuscripcionesAdmin(mysqli $conn): void
+{
+    requireAdminAccess();
+    $docenteId = (int) ($_GET['docente_id'] ?? 0);
+    if ($docenteId <= 0 || !docenteAdminSubscriptionExists($conn, $docenteId)) {
+        jsonResponse(400, ['success' => false, 'error' => 'Selecciona un docente válido.']);
+    }
+    subscriptionExpireDue($conn);
+    $stmt = $conn->prepare(
+        'SELECT s.id, s.tipo_plan, p.codigo AS plan_codigo, p.nombre AS plan_nombre,
+                s.fecha_inicio, s.fecha_vencimiento, s.duracion_dias,
+                s.estado, s.estado_pago, s.pago_id, s.activado_por, s.activado_at,
+                pay.valor_recibido, pay.fecha_pago, pay.metodo_pago,
+                pay.referencia, pay.observaciones
+         FROM docente_suscripciones s
+         INNER JOIN subscription_plans p ON p.id = s.plan_id
+         LEFT JOIN payments pay ON pay.id = s.pago_id
+         WHERE s.docente_id = ?
+         ORDER BY s.fecha_inicio DESC, s.id DESC'
+    );
+    if (!$stmt) {
+        jsonResponse(500, ['success' => false, 'error' => 'No se pudo cargar el historial.']);
+    }
+    $stmt->bind_param('i', $docenteId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $rows = [];
+    while ($row = $result->fetch_assoc()) {
+        $rows[] = $row;
+    }
+    $stmt->close();
+    jsonResponse(200, ['success' => true, 'data' => $rows]);
+}
+
+function registrarPagoAdmin(mysqli $conn, array $data): void
+{
+    $admin = requireAdminAccess();
+    requireCsrfToken();
+    $docenteId = (int) ($data['docente_id'] ?? 0);
+    $planCode = normalizeText($data['plan'] ?? '');
+    $amount = (float) ($data['valor_recibido'] ?? 0);
+    $paymentDate = normalizeText($data['fecha_pago'] ?? '');
+    $method = normalizeText($data['metodo_pago'] ?? '');
+    $reference = normalizeText($data['referencia'] ?? '');
+    $notes = normalizeText($data['observaciones'] ?? '');
+    $state = strtoupper(normalizeText($data['estado_pago'] ?? 'PENDIENTE'));
+
+    if ($docenteId <= 0 || !docenteAdminSubscriptionExists($conn, $docenteId)) {
+        jsonResponse(400, ['success' => false, 'error' => 'Selecciona un docente válido.']);
+    }
+    $plan = subscriptionPlanByCode($conn, $planCode);
+    if (!$plan || $planCode === 'prueba_gratuita' || (int) ($plan['activo'] ?? 0) !== 1) {
+        jsonResponse(400, ['success' => false, 'error' => 'Selecciona un plan contratado válido.']);
+    }
+    if ($amount < 0 || $amount > 999999999999) {
+        jsonResponse(400, ['success' => false, 'error' => 'El valor recibido no es válido.']);
+    }
+    try {
+        $paymentDateSql = subscriptionDateInput($paymentDate)->format('Y-m-d H:i:s');
+    } catch (Throwable $exception) {
+        jsonResponse(400, ['success' => false, 'error' => $exception->getMessage()]);
+    }
+    if ($method === '' || mb_strlen($method, 'UTF-8') > 80) {
+        jsonResponse(400, ['success' => false, 'error' => 'Indica el método de pago.']);
+    }
+    if (mb_strlen($reference, 'UTF-8') > 120 || mb_strlen($notes, 'UTF-8') > 2000) {
+        jsonResponse(400, ['success' => false, 'error' => 'La referencia u observaciones exceden la longitud permitida.']);
+    }
+    if (!in_array($state, ['PENDIENTE', 'VERIFICADO'], true)) {
+        jsonResponse(400, ['success' => false, 'error' => 'El estado del pago no es válido.']);
+    }
+    if ($reference !== '') {
+        $referenceCheck = $conn->prepare('SELECT id FROM payments WHERE referencia = ? LIMIT 1');
+        if (!$referenceCheck) jsonResponse(500, ['success' => false, 'error' => 'No se pudo validar la referencia.']);
+        $referenceCheck->bind_param('s', $reference);
+        $referenceCheck->execute();
+        $exists = (bool) $referenceCheck->get_result()->fetch_assoc();
+        $referenceCheck->close();
+        if ($exists) jsonResponse(409, ['success' => false, 'error' => 'La referencia del comprobante ya está registrada.']);
+    }
+
+    $planId = (int) $plan['id'];
+    $adminId = (int) ($admin['id'] ?? 0);
+    $stmt = $conn->prepare(
+        'INSERT INTO payments
+            (docente_id, plan_id, valor_recibido, fecha_pago, metodo_pago,
+             referencia, observaciones, estado_pago, registrado_por)
+         VALUES (?, ?, ?, ?, ?, NULLIF(?, ""), NULLIF(?, ""), ?, ?)'
+    );
+    if (!$stmt) jsonResponse(500, ['success' => false, 'error' => 'No se pudo preparar el registro del pago.']);
+    $stmt->bind_param('iidsssssi', $docenteId, $planId, $amount, $paymentDateSql, $method, $reference, $notes, $state, $adminId);
+    if (!$stmt->execute()) {
+        $errno = $stmt->errno;
+        $stmt->close();
+        jsonResponse($errno === 1062 ? 409 : 500, ['success' => false, 'error' => $errno === 1062 ? 'La referencia del comprobante ya está registrada.' : 'No se pudo registrar el pago.']);
+    }
+    $paymentId = (int) $conn->insert_id;
+    $stmt->close();
+    if ($state === 'VERIFICADO') {
+        $verifiedStmt = $conn->prepare('UPDATE payments SET verificado_por = ?, verificado_at = CURRENT_TIMESTAMP WHERE id = ?');
+        if ($verifiedStmt) {
+            $verifiedStmt->bind_param('ii', $adminId, $paymentId);
+            $verifiedStmt->execute();
+            $verifiedStmt->close();
+        }
+    }
+    try {
+        recordSubscriptionAudit($conn, $adminId, 'REGISTRAR_PAGO', 'payment', $paymentId, [
+            'docente_id' => $docenteId,
+            'plan' => $planCode,
+            'estado_pago' => $state,
+            'valor_recibido' => $amount,
+        ]);
+    } catch (Throwable $exception) {
+        error_log('Subscription payment audit failed: ' . $exception->getMessage());
+    }
+    jsonResponse(201, ['success' => true, 'message' => 'Pago registrado. La suscripción no se activa hasta verificar y activar el pago.', 'data' => ['id' => $paymentId, 'estado_pago' => $state]]);
+}
+
+function verificarPagoAdmin(mysqli $conn, array $data): void
+{
+    $admin = requireAdminAccess();
+    requireCsrfToken();
+    $paymentId = (int) ($data['pago_id'] ?? 0);
+    if ($paymentId <= 0) jsonResponse(400, ['success' => false, 'error' => 'Indica un pago válido.']);
+
+    $stmt = $conn->prepare('SELECT id, estado_pago, subscription_id FROM payments WHERE id = ? FOR UPDATE');
+    if (!$stmt) jsonResponse(500, ['success' => false, 'error' => 'No se pudo consultar el pago.']);
+    $stmt->bind_param('i', $paymentId);
+    $stmt->execute();
+    $payment = $stmt->get_result()->fetch_assoc() ?: null;
+    $stmt->close();
+    if (!$payment) jsonResponse(404, ['success' => false, 'error' => 'El pago no existe.']);
+    if ((int) ($payment['subscription_id'] ?? 0) > 0) jsonResponse(409, ['success' => false, 'error' => 'El pago ya está asociado a una suscripción.']);
+    if ((string) $payment['estado_pago'] === 'VERIFICADO') jsonResponse(200, ['success' => true, 'message' => 'El pago ya estaba verificado.']);
+
+    $adminId = (int) ($admin['id'] ?? 0);
+    $stmt = $conn->prepare('UPDATE payments SET estado_pago = "VERIFICADO", verificado_por = ?, verificado_at = CURRENT_TIMESTAMP WHERE id = ? AND estado_pago = "PENDIENTE"');
+    if (!$stmt) jsonResponse(500, ['success' => false, 'error' => 'No se pudo verificar el pago.']);
+    $stmt->bind_param('ii', $adminId, $paymentId);
+    if (!$stmt->execute()) {
+        $stmt->close();
+        jsonResponse(500, ['success' => false, 'error' => 'No se pudo verificar el pago.']);
+    }
+    $stmt->close();
+    recordSubscriptionAudit($conn, $adminId, 'VERIFICAR_PAGO', 'payment', $paymentId);
+    jsonResponse(200, ['success' => true, 'message' => 'Pago verificado. Ahora puedes activar o renovar la suscripción.']);
+}
+
+function activarSuscripcionAdmin(mysqli $conn, array $data): void
+{
+    $admin = requireAdminAccess();
+    requireCsrfToken();
+    $paymentId = (int) ($data['pago_id'] ?? 0);
+    $duration = (int) ($data['duracion_dias'] ?? 0);
+    $startInput = normalizeText($data['fecha_inicio'] ?? '');
+    if ($paymentId <= 0 || $duration < 1 || $duration > 3650) {
+        jsonResponse(400, ['success' => false, 'error' => 'Indica un pago y una duración válidos.']);
+    }
+    try {
+        $start = subscriptionDateInput($startInput);
+    } catch (Throwable $exception) {
+        jsonResponse(400, ['success' => false, 'error' => $exception->getMessage()]);
+    }
+
+    $conn->begin_transaction();
+    try {
+        $stmt = $conn->prepare(
+            'SELECT pay.id, pay.docente_id, pay.plan_id, pay.estado_pago,
+                    pay.subscription_id, p.codigo, p.nombre
+             FROM payments pay
+             INNER JOIN subscription_plans p ON p.id = pay.plan_id
+             WHERE pay.id = ?
+             FOR UPDATE'
+        );
+        if (!$stmt) throw new RuntimeException('No se pudo consultar el pago.');
+        $stmt->bind_param('i', $paymentId);
+        if (!$stmt->execute()) throw new RuntimeException('No se pudo consultar el pago.');
+        $payment = $stmt->get_result()->fetch_assoc() ?: null;
+        $stmt->close();
+        if (!$payment) throw new RuntimeException('El pago no existe.');
+        if ((string) $payment['estado_pago'] !== 'VERIFICADO') throw new RuntimeException('Solo puedes activar una suscripción con un pago verificado.');
+        if ((int) ($payment['subscription_id'] ?? 0) > 0) throw new RuntimeException('El pago ya fue utilizado para activar una suscripción.');
+
+        $docenteId = (int) $payment['docente_id'];
+        $adminId = (int) ($admin['id'] ?? 0);
+        $current = subscriptionCurrent($conn, $docenteId);
+        if ($current && in_array((string) ($current['estado'] ?? ''), ['ACTIVA', 'PRUEBA ACTIVA'], true)) {
+            $cancel = $conn->prepare('UPDATE docente_suscripciones SET estado = "CANCELADA", updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+            if (!$cancel) throw new RuntimeException('No se pudo cerrar la suscripción anterior.');
+            $currentId = (int) $current['id'];
+            $cancel->bind_param('i', $currentId);
+            if (!$cancel->execute()) throw new RuntimeException('No se pudo cerrar la suscripción anterior.');
+            $cancel->close();
+        }
+
+        $end = $start->modify('+' . $duration . ' days');
+        $type = strtoupper((string) $payment['codigo']);
+        $state = 'ACTIVA';
+        $paymentState = 'VERIFICADO';
+        $startSql = $start->format('Y-m-d H:i:s');
+        $endSql = $end->format('Y-m-d H:i:s');
+        $stmt = $conn->prepare(
+            'INSERT INTO docente_suscripciones
+                (docente_id, plan_id, tipo_plan, fecha_inicio, fecha_vencimiento,
+                 duracion_dias, estado, estado_pago, pago_id, registrado_por,
+                 activado_por, activado_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)'
+        );
+        if (!$stmt) throw new RuntimeException('No se pudo preparar la activación.');
+        $planId = (int) $payment['plan_id'];
+        $stmt->bind_param('iisssissiii', $docenteId, $planId, $type, $startSql, $endSql, $duration, $state, $paymentState, $paymentId, $adminId, $adminId);
+        if (!$stmt->execute()) throw new RuntimeException('No se pudo activar la suscripción: ' . $stmt->error);
+        $subscriptionId = (int) $conn->insert_id;
+        $stmt->close();
+
+        $stmt = $conn->prepare('UPDATE payments SET subscription_id = ? WHERE id = ? AND subscription_id IS NULL');
+        if (!$stmt) throw new RuntimeException('No se pudo asociar el pago a la suscripción.');
+        $stmt->bind_param('ii', $subscriptionId, $paymentId);
+        if (!$stmt->execute() || $stmt->affected_rows !== 1) throw new RuntimeException('No se pudo asociar el pago a la suscripción.');
+        $stmt->close();
+        recordSubscriptionAudit($conn, $adminId, 'ACTIVAR_RENOVAR_SUSCRIPCION', 'subscription', $subscriptionId, [
+            'docente_id' => $docenteId,
+            'pago_id' => $paymentId,
+            'suscripcion_anterior_id' => $current ? (int) $current['id'] : null,
+            'fecha_inicio' => $startSql,
+            'fecha_vencimiento' => $endSql,
+            'duracion_dias' => $duration,
+        ]);
+        $conn->commit();
+    } catch (Throwable $exception) {
+        $conn->rollback();
+        jsonResponse(409, ['success' => false, 'error' => $exception->getMessage()]);
+    }
+    jsonResponse(200, ['success' => true, 'message' => 'Suscripción activada o renovada correctamente. El docente puede ingresar con su cuenta existente.', 'data' => ['id' => $subscriptionId]]);
+}
+
 function crearUsuarioAdmin(mysqli $conn, array $data): void
 {
     requireAdminAccess();
@@ -2752,6 +3161,14 @@ function crearUsuarioAdmin(mysqli $conn, array $data): void
         $conn->rollback();
         error_log('Admin teacher creation could not verify the inserted record.');
         jsonResponse(500, ['success' => false, 'error' => 'No se pudo confirmar el registro del docente; no se guardó la cuenta. Intenta nuevamente.']);
+    }
+
+    try {
+        createTrialSubscription($conn, $newId, (int) (getAuthenticatedUserSession()['id'] ?? 0));
+    } catch (Throwable $exception) {
+        $conn->rollback();
+        error_log('Teacher trial creation failed: ' . $exception->getMessage());
+        jsonResponse(500, ['success' => false, 'error' => 'No se pudo activar la prueba gratuita; no se guardó la cuenta. Intenta nuevamente.']);
     }
 
     if (!$conn->commit()) {
@@ -3518,9 +3935,20 @@ if ($method === 'POST' && $action === 'crearDocente') {
     ]);
 }
 
-$adminOnlyActions = ['crearUsuarioAdmin', 'actualizarUsuarioAdmin', 'archivarUsuarioAdmin', 'eliminarUsuarioAdmin'];
+$adminOnlyActions = [
+    'crearUsuarioAdmin',
+    'actualizarUsuarioAdmin',
+    'archivarUsuarioAdmin',
+    'eliminarUsuarioAdmin',
+    'obtenerSuscripcionesAdmin',
+    'obtenerPlanesSuscripcion',
+    'obtenerHistorialSuscripcionesAdmin',
+    'registrarPagoAdmin',
+    'verificarPagoAdmin',
+    'activarSuscripcionAdmin',
+];
 if (($method === 'POST' && in_array($action, $adminOnlyActions, true))
-    || ($method === 'GET' && $action === 'obtenerUsuariosAdmin')) {
+    || ($method === 'GET' && ($action === 'obtenerUsuariosAdmin' || in_array($action, $adminOnlyActions, true)))) {
     requireAdminAccess();
 }
 
@@ -3533,6 +3961,27 @@ try {
         'error' => $exception->getMessage(),
         'hint' => 'Verifica que MySQL (XAMPP) esté iniciado y que la base exista.',
     ]);
+}
+
+$subscriptionProtectedActions = [
+    'obtenerEstudiantes',
+    'obtenerEstudiante',
+    'historialEstudiante',
+    'obtenerAcudiente',
+    'agregarEstudiante',
+    'actualizarEstudiante',
+    'archivarEstudiante',
+    'restaurarEstudiante',
+    'guardarRegistro',
+    'archivarRegistrosHistorial',
+    'recuperarRegistroHistorial',
+    'guardarAcudiente',
+    'importarPlanillaAcudientes',
+    'guardarNotificacionAcudiente',
+    'enviarCorreoAcudiente',
+];
+if (in_array($action, $subscriptionProtectedActions, true)) {
+    requireActiveSubscriptionAccess($conn);
 }
 
 if ($method === 'GET') {
@@ -3564,6 +4013,18 @@ if ($method === 'GET') {
 
         case 'obtenerUsuariosAdmin':
             obtenerUsuariosAdmin($conn);
+            break;
+
+        case 'obtenerSuscripcionesAdmin':
+            obtenerSuscripcionesAdmin($conn);
+            break;
+
+        case 'obtenerPlanesSuscripcion':
+            obtenerPlanesSuscripcion($conn);
+            break;
+
+        case 'obtenerHistorialSuscripcionesAdmin':
+            obtenerHistorialSuscripcionesAdmin($conn);
             break;
 
         default:
@@ -3646,6 +4107,18 @@ if ($method === 'POST') {
 
         case 'archivarUsuarioAdmin':
             archivarUsuarioAdmin($conn, $payload);
+            break;
+
+        case 'registrarPagoAdmin':
+            registrarPagoAdmin($conn, $payload);
+            break;
+
+        case 'verificarPagoAdmin':
+            verificarPagoAdmin($conn, $payload);
+            break;
+
+        case 'activarSuscripcionAdmin':
+            activarSuscripcionAdmin($conn, $payload);
             break;
 
         case 'importarPlanillaAcudientes':

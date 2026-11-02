@@ -4,11 +4,21 @@ declare(strict_types=1);
 require_once dirname(__DIR__) . '/app/backend/session.php';
 ensureAppSessionStarted();
 require_once dirname(__DIR__) . '/app/backend/password_reset.php';
+require_once dirname(__DIR__) . '/app/backend/db.php';
+require_once dirname(__DIR__) . '/app/backend/bootstrap_db.php';
+require_once dirname(__DIR__) . '/app/backend/subscriptions.php';
 $csrfToken = getCsrfToken();
 
 $authUser = $_SESSION['auth_user'] ?? null;
 if (!is_array($authUser) || (($authUser['rol'] ?? '') !== 'docente')) {
     header('Location: acceso.php');
+    exit;
+}
+
+ensureDatabaseReady();
+$chatbotSubscriptionAccess = subscriptionAccess(conectarDB(), (int) ($authUser['id'] ?? 0), 'docente');
+if (!$chatbotSubscriptionAccess['allowed']) {
+    header('Location: ../panel_docente.php');
     exit;
 }
 

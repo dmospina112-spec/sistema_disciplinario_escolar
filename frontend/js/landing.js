@@ -20,15 +20,31 @@
   const submitButton = form.querySelector('button[type="submit"]');
   const submitLabel = submitButton.querySelector('.submit-label');
   const promotionActive = document.body.dataset.promotionActive === '1';
+  const trialFields = document.getElementById('trial-registration-fields');
+  const trialPassword = document.getElementById('password');
+  const trialPasswordConfirmation = document.getElementById('password_confirmation');
+  const messageField = document.getElementById('message');
+
+  const updateTrialFields = () => {
+    const isTrial = planSelect.value === 'prueba_gratuita';
+    if (trialFields) trialFields.hidden = !isTrial;
+    if (trialPassword) trialPassword.required = isTrial;
+    if (trialPasswordConfirmation) trialPasswordConfirmation.required = isTrial;
+    if (messageField) messageField.required = !isTrial;
+  };
 
   const selectPlan = (plan) => {
     if (plan === 'promocion' && !promotionActive) return;
     if ([...planSelect.options].some((option) => option.value === plan)) {
       planSelect.value = plan;
+      updateTrialFields();
       document.getElementById('contacto').scrollIntoView({ behavior: 'smooth', block: 'start' });
       window.setTimeout(() => planSelect.focus({ preventScroll: true }), 450);
     }
   };
+
+  planSelect.addEventListener('change', updateTrialFields);
+  updateTrialFields();
 
   document.querySelectorAll('[data-plan]').forEach((button) => {
     button.addEventListener('click', () => selectPlan(button.dataset.plan));
@@ -67,8 +83,12 @@
         showFeedback(result.message || 'No fue posible enviar tu solicitud. Revisa tus datos e inténtalo de nuevo.');
         return;
       }
-      showFeedback('¡Gracias por contactar a COMPORTATE! Tu solicitud fue enviada correctamente. No crea una cuenta; la administradora revisará la solicitud y se pondrá en contacto contigo.', true);
+      const isTrial = planSelect.value === 'prueba_gratuita';
+      showFeedback(isTrial
+        ? '¡Tu cuenta fue creada! La prueba gratuita de 14 días está activa. Ya puedes ingresar con tu mismo correo y contraseña.'
+        : '¡Gracias por contactar a COMPORTATE! Tu solicitud fue enviada correctamente. La administradora revisará la solicitud y se pondrá en contacto contigo.', true);
       form.reset();
+      updateTrialFields();
     } catch (error) {
       showFeedback('No pudimos conectar con el servicio de envío. Conservamos la información del formulario para que puedas intentarlo de nuevo.');
     } finally {
