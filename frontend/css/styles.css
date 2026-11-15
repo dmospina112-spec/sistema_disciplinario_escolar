@@ -1199,6 +1199,27 @@ body.site-body:not(.login-page) #btnImprimirHistorialSeleccionados:hover:not(:di
   border-color: #1d4f91;
 }
 
+/* Keep subscription controls readable while interacting with them. */
+body.site-body:not(.login-page) #subscriptionAdminRefresh:hover,
+body.site-body:not(.login-page) #subscriptionAdminRefresh:focus,
+body.site-body:not(.login-page) #subscriptionAdminRefresh:active,
+body.site-body:not(.login-page) .subscription-admin-table [data-payment-action="select"]:hover,
+body.site-body:not(.login-page) .subscription-admin-table [data-payment-action="select"]:focus,
+body.site-body:not(.login-page) .subscription-admin-table [data-payment-action="select"]:active {
+  color: #ffffff !important;
+  border-color: #1d4f91 !important;
+  background-color: #1d4f91 !important;
+  background-image: none !important;
+}
+
+body.site-body:not(.login-page) #subscriptionPaymentSubmit:hover,
+body.site-body:not(.login-page) #subscriptionPaymentSubmit:focus,
+body.site-body:not(.login-page) #subscriptionPaymentSubmit:active {
+  color: #ffffff;
+  border-color: #16417a;
+  background: linear-gradient(135deg, #16417a 0%, #1d4f91 100%);
+}
+
 body.site-body:not(.login-page) .student-manage-actions .btn-outline-danger:hover,
 body.site-body:not(.login-page) .admin-user-actions .btn-outline-danger:hover {
   color: #ffffff;

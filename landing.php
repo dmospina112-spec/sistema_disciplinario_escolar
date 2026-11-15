@@ -166,37 +166,37 @@ function landingEscape(string $value): string
           <article class="plan-card">
             <div class="plan-top"><span class="plan-index">PLAN 01</span><span class="plan-icon" aria-hidden="true">◷</span></div>
             <h3>Suscripción mensual</h3><p class="plan-desc">Acceso a la plataforma con una mensualidad.</p>
-            <div class="plan-price"><strong>$15.000</strong><span>COP / mes</span></div>
+            <div class="plan-price"><strong>$30.000</strong><span>COP / mes</span></div>
             <ul class="plan-benefits"><li>Un mes de servicio</li><li>Pago mensual</li><li>Sin cobro automático</li></ul>
             <button class="button button-outline plan-select" type="button" data-plan="mensual">Seleccionar plan mensual <span aria-hidden="true">→</span></button>
           </article>
 
           <?php if ($promotionIsActive): ?>
           <article class="plan-card plan-card-featured">
-            <div class="plan-ribbon">20% de descuento · enero y febrero</div>
+            <div class="plan-ribbon">16,7% de descuento · enero y febrero</div>
             <div class="plan-top"><span class="plan-index">PLAN 02</span><span class="plan-icon" aria-hidden="true">✦</span></div>
             <h3>Promoción de temporada escolar</h3><p class="plan-desc">Una oportunidad para empezar el año escolar.</p>
-            <div class="plan-price"><strong>$12.000</strong><span>COP · primer mes</span></div>
-            <p class="plan-was">Precio regular <s>$15.000</s> <span>Ahorras $3.000</span></p>
-            <ul class="plan-benefits"><li>20% de descuento en la primera mensualidad</li><li>Mensualidades posteriores: $15.000 COP</li><li>Vigente solo en enero y febrero de <?= landingEscape($today->format('Y')) ?></li></ul>
+            <div class="plan-price"><strong>$25.000</strong><span>COP · primer mes</span></div>
+            <p class="plan-was">Precio regular <s>$30.000</s> <span>Ahorras $5.000</span></p>
+            <ul class="plan-benefits"><li>16,7% de descuento en la primera mensualidad</li><li>Mensualidades posteriores: $30.000 COP</li><li>Vigente solo en enero y febrero de <?= landingEscape($today->format('Y')) ?></li></ul>
             <button class="button button-featured plan-select" type="button" data-plan="promocion">Seleccionar promoción <span aria-hidden="true">→</span></button>
           </article>
           <?php else: ?>
           <article class="plan-card plan-card-unavailable">
             <div class="plan-top"><span class="plan-index">PLAN 02</span><span class="plan-icon" aria-hidden="true">✦</span></div>
             <span class="plan-status">Disponible en enero y febrero</span><h3>Promoción de temporada escolar</h3><p class="plan-desc">El descuento de temporada se activa únicamente durante enero y febrero.</p>
-            <div class="plan-price"><strong>$12.000</strong><span>COP · primer mes promocional</span></div>
-            <p class="plan-was">Precio regular <s>$15.000</s> · Ahorras $3.000</p>
-            <ul class="plan-benefits"><li>20% de descuento en la primera mensualidad</li><li>Mensualidades posteriores: $15.000 COP</li><li>Promoción no vigente en este momento</li></ul>
+            <div class="plan-price"><strong>$25.000</strong><span>COP · primer mes promocional</span></div>
+            <p class="plan-was">Precio regular <s>$30.000</s> · Ahorras $5.000</p>
+            <ul class="plan-benefits"><li>16,7% de descuento en la primera mensualidad</li><li>Mensualidades posteriores: $30.000 COP</li><li>Promoción no vigente en este momento</li></ul>
             <button class="button button-outline" type="button" disabled>Promoción no disponible</button>
           </article>
           <?php endif; ?>
 
           <article class="plan-card">
             <div class="plan-top"><span class="plan-index">PLAN 03</span><span class="plan-icon" aria-hidden="true">▣</span></div>
-            <h3>Suscripción anual</h3><p class="plan-desc">Pague 10, lleve 12: un año completo de servicio.</p>
-            <div class="plan-price"><strong>$150.000</strong><span>COP / año</span></div>
-            <p class="plan-was">Precio normal $180.000 · <span>Ahorras $30.000</span></p>
+            <h3>Suscripción anual</h3><p class="plan-desc">Una sola cuota anual con descuento y un año completo de servicio.</p>
+            <div class="plan-price"><strong>$200.000</strong><span>COP / año</span></div>
+            <p class="plan-was">Precio normal $240.000 · <span>Ahorras $40.000</span></p>
             <ul class="plan-benefits"><li>12 meses de servicio</li><li>Una sola cuota anual</li><li>Descuento aproximado del 16,6%</li></ul>
             <button class="button button-outline plan-select" type="button" data-plan="anual">Seleccionar plan anual <span aria-hidden="true">→</span></button>
           </article>
@@ -226,9 +226,9 @@ function landingEscape(string $value): string
               <select id="plan" name="plan" required>
                 <option value="">Selecciona una opción</option>
                 <option value="prueba_gratuita">Prueba gratuita de 14 días — GRATIS</option>
-                <option value="mensual">Suscripción mensual — $15.000 COP</option>
-                <?php if ($promotionIsActive): ?><option value="promocion">Promoción de temporada — $12.000 COP el primer mes</option><?php endif; ?>
-                <option value="anual">Suscripción anual “Pague 10, lleve 12” — $150.000 COP</option>
+                <option value="mensual">Suscripción mensual — $30.000 COP</option>
+                <?php if ($promotionIsActive): ?><option value="promocion">Promoción de temporada — $25.000 COP el primer mes</option><?php endif; ?>
+                <option value="anual">Suscripción anual — $200.000 COP</option>
                 <option value="todos">Deseo recibir información sobre todos los planes</option>
               </select>
             </div>
